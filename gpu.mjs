@@ -96,7 +96,7 @@ export async function init(canvas) {
   let startTime = performance.now()
   function frame() {
     let t = (performance.now() - startTime)/1000
-    //wavegen.setTime(t)
+    wavegen.setTime(t)
     renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
     const commandEncoder = device.createCommandEncoder()
 
