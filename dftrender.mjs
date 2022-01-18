@@ -1,6 +1,7 @@
 import * as config from './config.mjs'
+import {JobSet} from './jobset.mjs'
 
-let capacity = 4
+let capacity = 12
 
 const INSTANCE_VERTEX_SIZE = 7 * 4
 const SHAPE_VERTEX_SIZE    = 4 * 4
@@ -8,7 +9,7 @@ const VIEWPORT_BUFFER_SIZE = 2 * 4
 
 let device = null
 let context = null
-
+let jobs = new JobSet()
 let pipeline = null            // Render pipeline
 let bindGroup  = []            // Uniform binding group
 let vertexBuffer = null        // Shape vertices
@@ -126,7 +127,7 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
       binding: 1,
       resource: {
         buffer: instanceMapBuffer,
-        size: instanceMapData.length
+        size: instanceMapData.length * 4
       }
     }, {
       binding: 2,
@@ -145,6 +146,7 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
     }]
   }
 }
+
 
 export function setPosition(id, x, y, w, h) {
   device.queue.writeBuffer(
@@ -176,7 +178,6 @@ export function setSource(id, x) {
     id * 4,
     new Uint32Array([x]),
     0,
-    1
   )
 }
 
@@ -185,7 +186,7 @@ export function queueRenderPass(passEncoder) {
   passEncoder.setVertexBuffer(0, vertexBuffer);
   passEncoder.setVertexBuffer(1, instanceBuffer);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.draw(6, 4, 0, 0);
+  passEncoder.draw(6, capacity, 0, 0);
 }
 
 

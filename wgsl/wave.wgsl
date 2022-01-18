@@ -37,9 +37,9 @@ fn vert_main([[location(0)]] a_xy     : vec2<f32>,
 [[group(0), binding(1)]] var<storage, read> instanceMap : InstanceMap;
 
 fn colourAt(x: u32, h: f32, i: u32, colour: vec3<f32>) -> vec4<f32> {
-  var y : f32   = wave.data[i*u32(2048) + x] / 5.0 + 0.5;
-  var dy : f32  = abs(h - y) * 50.0;
-  var lvl : f32 = min(1.0, max(0.0, pow(1.0 - min(1.0, dy), 0.5)));
+  var y : f32   = wave.data[i*2048u + x] / 5.0 + 0.5;
+  var dy : f32  = abs(h - y) * 30.0;
+  var lvl : f32 = min(1.0, max(0.0, pow(1.0 - min(1.0, dy), 0.7)));
   return vec4<f32>(lvl * colour, lvl);
 }
 
@@ -48,10 +48,12 @@ fn frag_main([[location(0)]] uv: vec2<f32>,
              [[location(1), interpolate(flat)]] instance: u32,
              [[location(2), interpolate(flat)]] colour: vec3<f32>) -> [[location(0)]] vec4<f32> {
   var idx : u32 = instanceMap.data[instance];
-  var x : u32   = u32(uv[0] * 512.0) % u32(512);
-  return 0.25 * colourAt(x-u32(1), uv[1], instance, colour)
-       + 0.5  * colourAt(x,        uv[1], instance, colour)
-       + 0.25 * colourAt(x+u32(1), uv[1], instance, colour);
+  var x : u32   = u32(round(uv[0] * 512.0)) % 512u;
+  return 0.3   * colourAt(x - 2u, uv[1], idx, colour)
+       + 0.5  * colourAt(x - 1u, uv[1], idx, colour)
+       + 1.0   * colourAt(x,      uv[1], idx, colour)
+       + 0.5  * colourAt(x + 1u, uv[1], idx, colour)
+       + 0.3   * colourAt(x + 2u, uv[1], idx, colour);
   //var y : f32   = wave.data[inst*u32(1024) + x] / 4.0 + 0.5;
   //var dy : f32  = abs(uv[1] - y) * 50.0;
   //var lvl : f32 = min(1.0, max(0.0, pow(1.0 - min(1.0, dy), 0.5)));

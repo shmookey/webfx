@@ -1,6 +1,6 @@
 import * as config from './config.mjs'
 
-let capacity = 4
+let capacity = 12
 
 const INSTANCE_VERTEX_SIZE = 7 * 4
 const SHAPE_VERTEX_SIZE    = 4 * 4
@@ -129,7 +129,7 @@ export async function init(deviceRef, contextRef, presentationFormat, waveBuffer
       binding: 1,
       resource: {
         buffer: instanceMapBuffer,
-        size: instanceMapData.length
+        size: instanceMapData.length * 4
       }
     }, {
       binding: 2,
@@ -174,7 +174,6 @@ export function setViewportSize(w, h) {
 }
 
 export function setSource(id, x) {
-  console.log(id)
   instanceMapData[id] = x
   device.queue.writeBuffer(
     instanceMapBuffer,
@@ -184,13 +183,10 @@ export function setSource(id, x) {
 }
 
 export function queueRenderPass(passEncoder) {
-  //renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-  //const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
   passEncoder.setPipeline(pipeline);
   passEncoder.setVertexBuffer(0, vertexBuffer);
   passEncoder.setVertexBuffer(1, instanceBuffer);
   passEncoder.setBindGroup(0, bindGroup);
   passEncoder.draw(6, capacity, 0, 0);
-  //passEncoder.endPass();
 }
 

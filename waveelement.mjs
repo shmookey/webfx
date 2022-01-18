@@ -45,7 +45,8 @@ class WaveViewElement extends HTMLElement {
   }
   updateRect() {
     const r = this.getBoundingClientRect()
-    waverender.setPosition(this.viewID, r.x, r.y, r.width, r.height)
+    if(this.hasOwnProperty('viewID'))
+      waverender.setPosition(this.viewID, r.x, r.y, r.width, r.height)
     if(this.hasOwnProperty('dftViewID'))
       dftrender.setPosition(this.dftViewID, r.x, r.y, r.width, r.height)
   }

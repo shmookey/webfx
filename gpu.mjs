@@ -4,6 +4,8 @@ import * as wavemix    from './wavemix.mjs'
 import * as dft        from './dft.mjs'
 import * as dftrender  from './dftrender.mjs'
 import * as config     from './config.mjs'
+import * as memory     from './memory.mjs'
+import * as xcorrelate from './xcorrelate.mjs'
 
 let readyCallbacks       = []
 let adapter              = null
@@ -14,6 +16,7 @@ let presentationSize     = null
 let presentationFormat   = null
 let waveBuffer           = null
 let dftBuffer            = null
+let dataBuffer           = null
 let renderPassDescriptor = null
 let renderTarget         = null
 let renderTargetView     = null
@@ -48,17 +51,17 @@ export async function init(canvas) {
         storeOp: 'store'
     }]
   }
-  console.log(context)
+  memory.init(device)
   waveBuffer = await wavegen.init(device)
-  dftBuffer  = await dft.init(device, waveBuffer)
-  await wavemix.init(device, waveBuffer)
-  await waverender.init(device, context, presentationFormat, waveBuffer)
-  await dftrender.init(device, context, presentationFormat, dftBuffer)
+  await dft.init(device)
+  await wavemix.init(device)
+  await xcorrelate.init(device)
+  await waverender.init(device, context, presentationFormat, memory.getBuffer())
+  await dftrender.init(device, context, presentationFormat, memory.getBuffer())
   waverender.setViewportSize(...presentationSize)
   dftrender.setViewportSize(...presentationSize)
 
   const resizeObserver = new ResizeObserver(entries => {
-    //const r = entries[0].contentRect
     const r = canvas.getBoundingClientRect()
     presentationSize = [r.width, r.height]
     context.configure({
@@ -77,7 +80,6 @@ export async function init(canvas) {
     })
     renderTargetView = renderTarget.createView()
     renderPassDescriptor.colorAttachments[0].view = renderTargetView
-    console.log(renderPassDescriptor)
     document.querySelectorAll('wave-view').forEach(e => e.updateRect())
   })
   resizeObserver.observe(document.querySelector('body'))
@@ -94,16 +96,20 @@ export async function init(canvas) {
   let startTime = performance.now()
   function frame() {
     let t = (performance.now() - startTime)/1000
-    wavegen.setTime(t)
+    //wavegen.setTime(t)
+    renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
     const commandEncoder = device.createCommandEncoder()
+
     wavegen.queueComputePass(commandEncoder)
     wavemix.queueComputePass(commandEncoder)
     dft.queueComputePass(commandEncoder)
-    renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
+    xcorrelate.queueComputePass(commandEncoder)
+
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor)
     dftrender.queueRenderPass(passEncoder)
     waverender.queueRenderPass(passEncoder)
     passEncoder.endPass()
+
     device.queue.submit([commandEncoder.finish()])
     requestAnimationFrame(frame)
   }
