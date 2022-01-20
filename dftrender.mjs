@@ -1,27 +1,15 @@
 import * as config from './config.mjs'
 import {JobSet} from './jobset.mjs'
 
-let capacity = 12
-
-const INSTANCE_VERTEX_SIZE = 7 * 4
-const SHAPE_VERTEX_SIZE    = 4 * 4
-const VIEWPORT_BUFFER_SIZE = 2 * 4
-
-let device = null
-let context = null
-let jobs = new JobSet()
-let pipeline = null            // Render pipeline
-let bindGroup  = []            // Uniform binding group
-let vertexBuffer = null        // Shape vertices
-let instanceData = new Float32Array(capacity * INSTANCE_VERTEX_SIZE)
-let instanceBuffer = null      // Instance vertices
-let instanceMapBuffer = null   // Instance -> Waveform mappings
-let renderPassDescriptor = null
-let viewportBuffer = null
+let device          = null
+let pipeline        = null
+let uvVertexBuffer  = null
+let globalsBuffer   = null
+const uvVertexData  = new Float32Array([0,0,  1,1,  1,0,  0,0,  0,1,  1,1])
+const globalsData   = new Float32Array([0,0, config.DFT_RESOLUTION])
 
 export async function init(deviceRef, contextRef, presentationFormat, dftBuffer) {
   device = deviceRef
-  context = contextRef
   const code = await (await fetch('wgsl/dftview.wgsl')).text()
   const module = device.createShaderModule({ code })
   pipeline = device.createRenderPipeline({
@@ -29,33 +17,13 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
       module: module,
       entryPoint: 'vert_main',
       buffers: [{   
-        arrayStride: SHAPE_VERTEX_SIZE,
+        arrayStride: 2*4,
         stepMode: 'vertex',
-        attributes: [{
-          shaderLocation: 0,
-          offset: 0,
-          format: 'float32x2'
-        }, {
-          shaderLocation: 1,
-          offset: 2*4,
-          format: 'float32x2'
-        }]
+        attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
       }, {
-        arrayStride: INSTANCE_VERTEX_SIZE,
-        stepMode: 'instance',
-        attributes: [{
-          shaderLocation: 2,
-          offset: 0,
-          format: 'float32x2'
-        }, {
-          shaderLocation: 3,
-          offset: 2*4,
-          format: 'float32x2'
-        }, {
-          shaderLocation: 4,
-          offset: 4*4,
-          format: 'float32x3'
-        }]
+        arrayStride: 2*4,
+        stepMode: 'vertex',
+        attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x2' }],
       }]
     }, fragment: {
       module: module,
@@ -67,126 +35,97 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
           alpha: { operation: 'add', srcFactor: 'one', dstFactor: 'one' }
         }
       }]
-    },
-    primitive: { topology: 'triangle-list' },
-    multisample: {
+    }, primitive: {
+      topology: 'triangle-list'
+    }, multisample: {
       count: config.MULTISAMPLE_COUNT,
       alphaToCoverageEnabled: config.MULTISAMPLE_ALPHA_TO_COVERAGE,
-    }
+    },
   })
-  const vertexData = new Float32Array([
-//   xy        uv
-    -1,1,      0,0,
-     1,0,      1,1,
-     1,1,      1,0,
-    -1,1,      0,0,
-    -1,0,      0,1,
-     1,0,      1,1,
-  ])
-  vertexBuffer = device.createBuffer({
-    size: vertexData.byteLength,
-    usage: GPUBufferUsage.VERTEX,
-    mappedAtCreation: true,
-  })
-  new Float32Array(vertexBuffer.getMappedRange()).set(new Float32Array(vertexData))
-  vertexBuffer.unmap()
-
-  instanceBuffer = device.createBuffer({
-    size: instanceData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    mappedAtCreation: true,
-  })
-  new Float32Array(instanceBuffer.getMappedRange()).set(new Float32Array(instanceData))
-  instanceBuffer.unmap()
-
-  const instanceMapData = new Uint32Array(capacity)
-  instanceMapBuffer = device.createBuffer({
-    size: instanceMapData.byteLength,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    mappedAtCreation: true,
-  })
-  new Uint32Array(instanceMapBuffer.getMappedRange()).set(new Uint32Array(instanceMapData))
-  instanceMapBuffer.unmap()
-
-  viewportBuffer = device.createBuffer({
-    size: VIEWPORT_BUFFER_SIZE,
+  globalsBuffer = device.createBuffer({
+    size: globalsData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    mappedAtCreation: true,
   })
-  new Float32Array(viewportBuffer.getMappedRange()).set(new Float32Array(2))
-  viewportBuffer.unmap()
-  
-  bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
-    entries: [{
-      binding: 0,
-      resource: {
-        buffer: dftBuffer
-      }
-    }, {
-      binding: 1,
-      resource: {
-        buffer: instanceMapBuffer,
-        size: instanceMapData.length * 4
-      }
-    }, {
-      binding: 2,
-      resource: {
-        buffer: viewportBuffer,
-        size: VIEWPORT_BUFFER_SIZE
-      }
-    }]
+  uvVertexBuffer = device.createBuffer({
+    size: uvVertexData.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   })
-  
-  renderPassDescriptor = {
-    colorAttachments: [{
-        view: null,
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-        storeOp: 'store'
-    }]
+  device.queue.writeBuffer(globalsBuffer, 0, globalsData)
+  device.queue.writeBuffer(uvVertexBuffer, 0, uvVertexData)
+
+}
+
+export function create(input, scaleFactor) {
+  const vertexData = new Float32Array(12)
+  const paramsData = new Float32Array([scaleFactor])
+  const vertexBuffer = device.createBuffer({
+    size:  2*4*6,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+  })
+  const paramsBuffer = device.createBuffer({
+    size:  4,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  })
+  device.queue.writeBuffer(paramsBuffer, 0, paramsData)
+  const vertexBindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0), 
+    entries: [{ binding: 0, resource: { buffer: globalsBuffer } }],
+  })
+  const fragmentBindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(1), 
+    entries: [
+      { binding: 0, resource: { buffer: globalsBuffer } },
+      { binding: 1, resource: { buffer: paramsBuffer } },
+      { binding: 2, resource: input.resourceEntry       },
+    ]
+  })
+  const job = {
+    vertexBuffer, vertexBindGroup, fragmentBindGroup, vertexData, paramsData,
+    get colour()  { return getColour(job) },
+    set colour(c) { return setColour(job, c) },
+    get rect()    { return getRect(job) },
+    set rect(r)   { return setRect(job, r) },
+    destroy()     { return destroy(job) },
+    render(enc)   { return render(job, enc) },
   }
+  return job
 }
 
-
-export function setPosition(id, x, y, w, h) {
-  device.queue.writeBuffer(
-    instanceBuffer,
-    id * INSTANCE_VERTEX_SIZE,
-    new Float32Array([x,y,w,h])
-  )
+export function getRect(job) {
+  const v = job.vertices
+  return [v[0], v[1], v[2]-v[0], v[3]-v[1]]
 }
 
-export function setColour(id, rgb) {
-  device.queue.writeBuffer(
-    instanceBuffer,
-    id * INSTANCE_VERTEX_SIZE + 16,
-    new Float32Array(rgb)
-  )
+export function setRect(job, r) {
+  job.vertexData.set([
+    r[0]         , r[1]        ,
+    r[0] + r[2]  , r[1] + r[3] ,
+    r[0] + r[2]  , r[1]        ,
+    r[0]         , r[1]        ,
+    r[0]         , r[1] + r[3] ,
+    r[0] + r[2]  , r[1] + r[3] ,
+  ])
+  device.queue.writeBuffer(job.vertexBuffer, 0, job.vertexData)
+}
+
+export function destroy(job) {
+  job.vertexBuffer.destroy()
+  job.paramsBuffer.destroy()
 }
 
 export function setViewportSize(w, h) {
-  device.queue.writeBuffer(
-    viewportBuffer,
-    0,
-    new Float32Array([w, h])
-  )
+  globalsData[0] = w
+  globalsData[1] = h
+  device.queue.writeBuffer(globalsBuffer, 0, globalsData)
 }
 
-export function setSource(id, x) {
-  device.queue.writeBuffer(
-    instanceMapBuffer,
-    id * 4,
-    new Uint32Array([x]),
-    0,
-  )
-}
-
-export function queueRenderPass(passEncoder) {
-  passEncoder.setPipeline(pipeline);
-  passEncoder.setVertexBuffer(0, vertexBuffer);
-  passEncoder.setVertexBuffer(1, instanceBuffer);
-  passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.draw(6, capacity, 0, 0);
+export function render(job, passEncoder) {
+  passEncoder.setPipeline(pipeline)
+  passEncoder.setVertexBuffer(0, job.vertexBuffer)
+  passEncoder.setVertexBuffer(1, uvVertexBuffer)
+  passEncoder.setBindGroup(0, job.vertexBindGroup)
+  passEncoder.setBindGroup(1, job.fragmentBindGroup)
+  passEncoder.draw(6, 1, 0, 0)
 }
 
 

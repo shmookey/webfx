@@ -9,6 +9,7 @@ body {
   color: white;
   user-select: none;
   background: #202020;
+  position: relative;
 }
 
 #wrapper {
@@ -37,9 +38,8 @@ canvas {
 }
 .row {
   display: flex;
-  padding: 10px;
+  padding: 3px;
   width: 100%;
-  flex-grow: 1;
 }
 .row-name {
   width: 100px;
@@ -52,13 +52,25 @@ wave-view {
   border: 1px solid #A0A0A0;
   padding: 10px;
   font-size: 14pt;
-  margin: 20px;
+  margin: 0px 10px;
   flex-grow: 1;
+  height: 180px;
 }
 
 #source-A {
 }
 
 #source-B {
+}
+
+#tabs {
+  width: 100vw;
+  display: flex;
+  background-color: #333;
+  position: relative;
+}
+
+.tab {
+  margin: 5px 10px;
 }
 

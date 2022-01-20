@@ -19,21 +19,26 @@ fn mul(x: vec2<f32>, y: vec2<f32>) -> vec2<f32> {
 
 [[stage(compute), workgroup_size(128)]]
 fn main([[builtin(global_invocation_id)]] GlobalInvocationID : vec3<u32>) {
-  var n : u32       = GlobalInvocationID.x;
-  var r : vec2<f32> = vec2<f32>(0.0, 0.0);
-  for(var m: u32 = 0u; m < params.size; m = m + 1u) {
-    var a : vec2<f32> = inputA.data[n - m];
-    var b : vec2<f32> = vec2<f32>(0.0, 0.0);
+  var n: i32       = i32(GlobalInvocationID.x);
+  var r: vec2<f32> = vec2<f32>(0.0, 0.0);
+  var N: i32       = i32(params.size);
+  for(var m: i32 = 0; m < N; m = m + 1) {
+    var a : vec2<f32> = inputA.data[n];
+    //var b : vec2<f32> = vec2<f32>(0.0, 0.0);
     //if(m + n < 512u) { 
-      b = inputB.data[n];
+    var  b = inputB.data[n + m];
     //}
     r = r + mul(conj(a), b);
   }
   //output.data[n] = r / 100000.0;
   var re = r[0];
   var im = r[1];
-  output.data[n][0]   = re / 2000.0; //sqrt(re*re + im*im)/512.0 / 50.0;
-  output.data[n][1]   = im / 2000.0; ///atan2(im, re);
+  //output.data[n][0]   = re / 2.0; //sqrt(re*re + im*im)/512.0 / 50.0;
+  //output.data[n][1]   = im / 2.0; ///atan2(im, re);
+  output.data[n][0]   = re / 20.0; //sqrt(re*re + im*im)/512.0 / 50.0;
+  output.data[n][1]   = im / 20.0; ///atan2(im, re);
+  //output.data[n][0]   = sqrt(re*re + im*im);
+  //output.data[n][1]   = atan2(im, re);
 }
 
 

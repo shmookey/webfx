@@ -1,5 +1,6 @@
 import * as waverender from './waverender.mjs'
-import * as dftrender from './dftrender.mjs'
+import * as dftrender  from './dftrender.mjs'
+import * as gpu        from './gpu.mjs'
 
 const css = `
 #wrapper {
@@ -8,6 +9,9 @@ const css = `
 `
 
 class WaveViewElement extends HTMLElement {
+  #waveRenderer = null
+  #dftRenderer  = null
+
   constructor() {
     super()
     this.attachShadow({mode: 'open'})
@@ -18,22 +22,48 @@ class WaveViewElement extends HTMLElement {
     const resizeObserver = new ResizeObserver(() => this.updateRect())
     resizeObserver.observe(this)
   }
+
   static get observedAttributes() {
-    return ['view-id','wave-id','dft-view-id']
+    return []
   }
+
+  get waveRenderer() {
+    return this.#waveRenderer
+  }
+
+  set waveRenderer(job) {
+    if(this.#waveRenderer && this.isConnected) {
+      gpu.removeRenderJob(this.#waveRenderer)
+    }
+    this.#waveRenderer = job
+  }
+
+  get dftRenderer() {
+    return this.#dftRenderer
+  }
+
+  set dftRenderer(job) {
+    if(this.#dftRenderer && this.isConnected) {
+      gpu.removeRenderJob(this.#dftRenderer)
+    }
+    this.#dftRenderer = job
+  }
+
   connectedCallback() {
     if(!this.isConnected) return
+    if(this.#dftRenderer)  gpu.addRenderJob(this.#dftRenderer)
+    if(this.#waveRenderer) gpu.addRenderJob(this.#waveRenderer)
     this.updateRect()
   }
+  
+  disconnectedCallback() {
+    if(this.isConnected) return
+    if(this.#waveRenderer) gpu.removeRenderJob(this.#waveRenderer)
+    if(this.#dftRenderer)  gpu.removeRenderJob(this.#dftRenderer)
+  }
+
   attributeChangedCallback(name, oldVal, newVal) {
     switch(name) {
-      case 'view-id':
-        if(this.hasOwnProperty('viewID'))
-          throw 'WaveViewElement.prototype.viewID must not be changed'
-        this.viewID = Number.parseInt(newVal)
-        if(this.isConnected)
-          this.updateRect()
-        break
       case 'dft-view-id':
         if(this.hasOwnProperty('dftViewID'))
           throw 'WaveViewElement.prototype.dftViewID must not be changed'
@@ -43,12 +73,13 @@ class WaveViewElement extends HTMLElement {
         break
     }
   }
+
   updateRect() {
     const r = this.getBoundingClientRect()
-    if(this.hasOwnProperty('viewID'))
-      waverender.setPosition(this.viewID, r.x, r.y, r.width, r.height)
-    if(this.hasOwnProperty('dftViewID'))
-      dftrender.setPosition(this.dftViewID, r.x, r.y, r.width, r.height)
+    if(this.#waveRenderer)
+      this.#waveRenderer.rect = [r.x, r.y, r.width, r.height]
+    if(this.#dftRenderer)
+      this.#dftRenderer.rect = [r.x, r.y, r.width, r.height]
   }
 }
 

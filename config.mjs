@@ -1,10 +1,10 @@
-export const DATA_BUFFER_SLOTS    = 32 
+export const DATA_BUFFER_SLOTS    = 64 
 export const DATA_BLOCK_SIZE      = 8192
 export const BLOCK_ALIGN_BYTES    = DATA_BLOCK_SIZE
 export const BLOCK_ALIGN_F32      = DATA_BLOCK_SIZE / 4
 export const BLOCK_ALIGN_VEC2_F32 = DATA_BLOCK_SIZE / 8
 
-export const DFT_FMAX         = 24
+export const DFT_FMAX         = 32
 export const DFT_ALIGN        = 8192
 export const DFT_RESOLUTION   = 512
 export const DFT_SAMPLE_SIZE  = 4

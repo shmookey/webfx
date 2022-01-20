@@ -6,20 +6,19 @@ import * as dftrender  from './dftrender.mjs'
 import * as config     from './config.mjs'
 import * as memory     from './memory.mjs'
 import * as xcorrelate from './xcorrelate.mjs'
+import {JobSet}        from './jobset.mjs'
 
-let readyCallbacks       = []
 let adapter              = null
 let device               = null
 let context              = null
 let devicePixelRatio     = null
 let presentationSize     = null
 let presentationFormat   = null
-let waveBuffer           = null
-let dftBuffer            = null
-let dataBuffer           = null
 let renderPassDescriptor = null
 let renderTarget         = null
 let renderTargetView     = null
+let renderJobs           = new JobSet()
+let computeJobs          = new JobSet()
 
 export async function init(canvas) {
   adapter = await navigator.gpu.requestAdapter()
@@ -47,16 +46,16 @@ export async function init(canvas) {
     colorAttachments: [{
         view: renderTargetView,
         resolveTarget: null,
-        loadValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+        loadValue: { r: 0.06, g: 0.06, b: 0.09, a: 1.0 },
         storeOp: 'store'
     }]
   }
   memory.init(device)
-  waveBuffer = await wavegen.init(device)
+  await wavegen.init(device)
   await dft.init(device)
   await wavemix.init(device)
   await xcorrelate.init(device)
-  await waverender.init(device, context, presentationFormat, memory.getBuffer())
+  await waverender.init(device, presentationFormat)
   await dftrender.init(device, context, presentationFormat, memory.getBuffer())
   waverender.setViewportSize(...presentationSize)
   dftrender.setViewportSize(...presentationSize)
@@ -84,35 +83,43 @@ export async function init(canvas) {
   })
   resizeObserver.observe(document.querySelector('body'))
 
-  window.addEventListener('keydown', async ev => {
-    switch(ev.code) {
-    case 'KeyD':
-      const r = await dft.getResults(1)
-      console.log(r)
-      break
-    }
-  })
+}
 
-  let startTime = performance.now()
-  function frame() {
-    let t = (performance.now() - startTime)/1000
-    wavegen.setTime(t)
-    renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
+export function addRenderJob(job) {
+  renderJobs.add(job)
+}
+
+export function removeRenderJob(job) {
+  renderJobs.remove(job)
+}
+
+export function addComputeJob(job) {
+  computeJobs.add(job)
+}
+
+export function removeComputeJob(job) {
+  computeJobs.remove(job)
+}
+
+export function renderFrame(time) {
+  wavegen.setTime(time)
+  renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
+  {
     const commandEncoder = device.createCommandEncoder()
-
     wavegen.queueComputePass(commandEncoder)
     wavemix.queueComputePass(commandEncoder)
     dft.queueComputePass(commandEncoder)
     xcorrelate.queueComputePass(commandEncoder)
-
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor)
-    dftrender.queueRenderPass(passEncoder)
-    waverender.queueRenderPass(passEncoder)
-    passEncoder.endPass()
-
     device.queue.submit([commandEncoder.finish()])
-    requestAnimationFrame(frame)
   }
-  requestAnimationFrame(frame)
+  {
+    const commandEncoder = device.createCommandEncoder()
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor)
+    renderJobs.all.forEach(job => job.render(passEncoder))
+    passEncoder.endPass()
+    device.queue.submit([commandEncoder.finish()])
+  }
 }
+
+
 

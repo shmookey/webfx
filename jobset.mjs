@@ -14,7 +14,7 @@ export class JobSet {
   add(spec) {
     const id = this.#nextJobID
     this.#nextJobID++
-    this.#jobs.push({ id, spec })
+    this.#jobs.push({ id, spec, active: true })
     return id
   }
 
@@ -25,10 +25,12 @@ export class JobSet {
   }
 
   remove(id) {
-    const idx = this.#jobs.findIndex(x => x.id == id)
-    if(idx == -1) throw 'No such job.'
+    const job = this.get(id)
     this.#jobs.splice(idx, 1)
   }
 
+  run() {
+    
+  }
 }
 
