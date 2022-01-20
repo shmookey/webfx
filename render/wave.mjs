@@ -1,16 +1,15 @@
-import * as config from './config.mjs'
-import {JobSet} from './jobset.mjs'
+import * as config from '../config.mjs'
 
 let device          = null
 let pipeline        = null
 let uvVertexBuffer  = null
 let globalsBuffer   = null
 const uvVertexData  = new Float32Array([0,0,  1,1,  1,0,  0,0,  0,1,  1,1])
-const globalsData   = new Float32Array([0,0, config.DFT_RESOLUTION])
+const globalsData   = new Float32Array([0,0, config.WAVE_RESOLUTION])
 
-export async function init(deviceRef, contextRef, presentationFormat, dftBuffer) {
+export async function init(deviceRef, presentationFormat) {
   device = deviceRef
-  const code = await (await fetch('wgsl/dftview.wgsl')).text()
+  const code = await (await fetch('wgsl/render/wave.wgsl')).text()
   const module = device.createShaderModule({ code })
   pipeline = device.createRenderPipeline({
     vertex: {
@@ -42,6 +41,7 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
       alphaToCoverageEnabled: config.MULTISAMPLE_ALPHA_TO_COVERAGE,
     },
   })
+
   globalsBuffer = device.createBuffer({
     size: globalsData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -55,32 +55,35 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
 
 }
 
-export function create(input, scaleFactor) {
+export function create(input, colour) {
   const vertexData = new Float32Array(12)
-  const paramsData = new Float32Array([scaleFactor])
+  const uniformData = new Float32Array(colour)
   const vertexBuffer = device.createBuffer({
     size:  2*4*6,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
   })
-  const paramsBuffer = device.createBuffer({
-    size:  4,
+  const uniformBuffer = device.createBuffer({
+    size:  3*4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
   })
-  device.queue.writeBuffer(paramsBuffer, 0, paramsData)
+  device.queue.writeBuffer(uniformBuffer, 0, uniformData)
   const vertexBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0), 
-    entries: [{ binding: 0, resource: { buffer: globalsBuffer } }],
+    entries: [
+      { binding: 0, resource: { buffer: globalsBuffer } },
+    ]
   })
   const fragmentBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(1), 
     entries: [
-      { binding: 0, resource: { buffer: globalsBuffer } },
-      { binding: 1, resource: { buffer: paramsBuffer } },
+      { binding: 0, resource: { buffer: uniformBuffer } },
+      { binding: 1, resource: { buffer: globalsBuffer } },
       { binding: 2, resource: input.resourceEntry       },
     ]
   })
   const job = {
-    vertexBuffer, vertexBindGroup, fragmentBindGroup, vertexData, paramsData,
+    vertexBuffer, vertexBindGroup, fragmentBindGroup, uniformBuffer,
+    vertexData, uniformData,
     get colour()  { return getColour(job) },
     set colour(c) { return setColour(job, c) },
     get rect()    { return getRect(job) },
@@ -108,9 +111,18 @@ export function setRect(job, r) {
   device.queue.writeBuffer(job.vertexBuffer, 0, job.vertexData)
 }
 
+export function getColour(job) {
+  return Array.from(job.uniformData)
+}
+
+export function setColour(job, colour) {
+  job.uniformData.set(colour)
+  device.queue.writeBuffer(job.uniformBuffer, 0, job.uniformData)
+}
+
 export function destroy(job) {
   job.vertexBuffer.destroy()
-  job.paramsBuffer.destroy()
+  job.uniformBuffer.destroy()
 }
 
 export function setViewportSize(w, h) {
@@ -127,5 +139,4 @@ export function render(job, passEncoder) {
   passEncoder.setBindGroup(1, job.fragmentBindGroup)
   passEncoder.draw(6, 1, 0, 0)
 }
-
 

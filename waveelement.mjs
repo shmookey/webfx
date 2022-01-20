@@ -1,5 +1,3 @@
-import * as waverender from './waverender.mjs'
-import * as dftrender  from './dftrender.mjs'
 import * as gpu        from './gpu.mjs'
 
 const css = `
