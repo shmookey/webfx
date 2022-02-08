@@ -39,6 +39,10 @@ export async function init(deviceRef, contextRef, presentationFormat, dftBuffer)
     }, multisample: {
       count: config.MULTISAMPLE_COUNT,
       alphaToCoverageEnabled: config.MULTISAMPLE_ALPHA_TO_COVERAGE,
+    }, depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'always',
+      format: 'depth32float',
     },
   })
   globalsBuffer = device.createBuffer({

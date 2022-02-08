@@ -1,4 +1,4 @@
-import * as gpu        from './gpu.mjs'
+import * as gpu from '/gpu.mjs'
 
 const css = `
 #wrapper {

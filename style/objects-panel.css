@@ -1,0 +1,25 @@
+#objects-panel {
+  left:   20px;
+  top:    60px;
+  width:  240px;
+  height: 360px;
+}
+
+#objects-panel .group-heading {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  padding: 0 10px;
+}
+
+
+#objects-panel button.add { 
+  background-image: url('/icon/add_white_24dp.svg');
+  margin-right: 10px;
+}
+
+#objects-panel button.delete    { background-image: url('/icon/delete_white_24dp.svg'); }
+#objects-panel button.duplicate { background-image: url('/icon/content_copy_white_24dp.svg');
+                                  background-size:  85%; }
+
+

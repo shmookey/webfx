@@ -1,0 +1,59 @@
+#prop-bar {
+  display: flex;
+  height:  40px;
+  width:   100%;
+  background: #202030;
+  align-items: center;
+  font-family: sans-serif;
+  font-size:   12px;
+  border-bottom: 2px solid #404050;
+}
+
+#prop-bar .section {
+  display: flex;
+  align-items: center;
+  margin:  0 10px;
+}
+
+#prop-bar .entity-name {
+  font-weight: bold;
+}
+
+#prop-bar .prop-coefficients {
+  text-decoration: underline;
+  color: #9090FF;
+  cursor: pointer;
+}
+#prop-bar .prop-coefficients:hover {
+  color: #B0B0FF;
+}
+
+#prop-bar .prop {
+  margin:  0 5px;
+}
+
+#prop-bar label {
+  margin: 0 5px;
+}
+
+#prop-bar input {
+  width: 60px;
+  position: relative;
+  padding: 3px;
+}
+
+#prop-bar button.action, #prop-bar button.toggle {
+  margin: 0 5px;
+}
+
+#prop-bar button.landscape  { background-image: url('/icon/panorama_white_24dp.svg'); }
+#prop-bar button.map        { background-image: url('/icon/grid_4x4_white_24dp.svg'); }
+#prop-bar button.sky        { background-image: url('/icon/stars_white_24dp.svg'); }
+#prop-bar button.flyaround  { background-image: url('/icon/360_white_24dp.svg'); }
+#prop-bar button.resetpos   { background-image: url('/icon/compass_white_24dp.svg'); }
+#prop-bar button.lookat     { background-image: url('/icon/focus_white_24dp.svg'); }
+#prop-bar button.unfocus    { background-image: url('/icon/clear_focus_white_24dp.svg'); }
+#prop-bar button.drag-pan   { background-image: url('/icon/pan_tool_white_24dp.svg'); }
+#prop-bar button.drag-look  { background-image: url('/icon/control_camera_white_24dp.svg'); }
+#prop-bar button.drag-pivot { background-image: url('/icon/camera_indoor_white_24dp.svg'); }
+

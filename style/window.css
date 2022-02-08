@@ -1,0 +1,63 @@
+.window {
+  border:         1px solid #303040;
+  display:        flex;
+  flex-direction: column;
+  color:          #DFDFDF;
+  z-index:        1;
+}
+.window.floating {
+  position: absolute;
+}
+.window .title-bar {
+  height:        24px;
+  min-height:    24px;
+  display:       flex;
+  align-items:   center;
+  font-size:     14px;
+  background:    #202030;
+  padding:       0 5px;
+  font-family:   sans-serif;
+  font-weight:   bold;
+  border-bottom: 2px solid #303040;
+}
+.window .window-content {
+  flex-grow:   1;
+  background:  #101020;
+  overflow-y:  overlay;
+}
+.window .window-content::-webkit-scrollbar {
+  background: transparent;
+  width:     10px;
+}
+.window .window-content::-webkit-scrollbar-track {
+}
+.window .window-content::-webkit-scrollbar-thumb {
+  background: #202030;
+}
+.window .control-bar {
+  height:      24px;
+  min-height:  24px;
+  background:  #202030;
+  display:     flex;
+  align-items: center;
+  padding:     0 5px;
+}
+.window .control-bar button {
+  font-size:           12px;
+  border-radius:       0px;
+  width:               20px;
+  height:              20px;
+  border:              none;
+  background-position: center;
+  background-size:     contain;
+  background-color:    transparent;
+}
+.window .control-bar button:hover {
+  background-color: #404050;
+}
+.window .control-bar .left {
+}
+.window .control-bar .right {
+  margin-left: auto;
+}
+

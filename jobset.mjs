@@ -19,13 +19,19 @@ export class JobSet {
   }
 
   get(id) {
-    const idx = this.#jobs.findIndex(x => x.id == id)
+    const idx = this.#jobs.findIndex(x => x.id == id || x.spec == id)
     if(idx == -1) throw 'No such job.'
     return this.#jobs[idx]
   }
 
+  getIndex(id) {
+    const idx = this.#jobs.findIndex(x => x.id == id || x.spec == id)
+    if(idx == -1) throw 'No such job.'
+    return idx
+  }
+
   remove(id) {
-    const job = this.get(id)
+    const idx = this.getIndex(id)
     this.#jobs.splice(idx, 1)
   }
 

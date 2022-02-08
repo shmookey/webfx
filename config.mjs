@@ -18,3 +18,6 @@ export const WAVE_SIZE        = WAVE_RESOLUTION * WAVE_SAMPLE_SIZE
 export const MULTISAMPLE_COUNT = 4
 export const MULTISAMPLE_ALPHA_TO_COVERAGE = false
 
+export const CAMERA_INITIAL_POSITION = [0, 10, -10]
+export const CAMERA_FOCUS            = [0,  0,   0]
+

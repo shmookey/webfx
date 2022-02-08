@@ -1,0 +1,11 @@
+input {
+  background: #404050;
+  border:     none;
+  outline:    0;
+  color:      white;
+}
+
+input:focus {
+  outline:    auto;
+}
+
