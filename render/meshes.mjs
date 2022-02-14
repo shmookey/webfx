@@ -46,6 +46,15 @@ export const cube = new Float32Array([
    0.5, -0.5,  0.5, 1, 0,
 ])
 
+export const footprint = new Float32Array([
+  -0.5, 0.0001, -0.5, 0, 1, 0, 0, 0,
+  -0.5, 0.0001,  0.5, 0, 1, 0, 0, 1,
+   0.5, 0.0001,  0.5, 0, 1, 0, 1, 1,
+  -0.5, 0.0001, -0.5, 0, 1, 0, 0, 0,
+   0.5, 0.0001,  0.5, 0, 1, 0, 1, 1,
+   0.5, 0.0001, -0.5, 0, 1, 0, 1, 0,
+])
+
 
 // Create (triangle) vertices for a planar grid at y=0 centered on the origin
 export function makeGrid(width, depth, tickSpacing, lineThickness) {
@@ -379,3 +388,123 @@ function calcNormal(p1, p2, p3) {
   return v3
 }
 
+/** `parabolicSurface(K,J,F,M)` creates a parabolic dish shape.
+
+This function is based on `globe()`. Read the `globe()` documentation first for
+a general idea of how curved surfaces are generated. 
+
+As in `globe()`, `K` and `J` represent something like lines of "latitude" and
+"longitude" respectively, but the interpretation of "latitude" is different.
+Instead of dividing the hemisphere, `K` is the number of divisions of the
+domain `-M < x < M` of the parabolic function `x^2 / 4F`. The domain is scaled
+to always produce a surface with a diameter of 1 at the widest point.
+
+Generates primitives in the form of a triangle list. Vertices have following
+attributes:
+
+NAME     TYPE      OFFSET   SIZE    DESCRIPTION
+position float32x3      0     12    XYZ position
+normal   float32x3     12     12    Normal vector
+uv       float32x2     24      8    UV coordinates
+
+The number of primitives, vertices, floats and bytes generated can be
+calculated as:
+
+  nPrimitives = 2K(J+1)
+  nVertices   = 6K(J+1)
+  nFloats     = 48K(J+1)
+  byteLength  = 192K(J+1)
+
+*/
+export function parabolicSurface(lats, longs, F, M) {
+  const innerMesh = parabolicSurfaceHelper(lats, longs, F, M, 0.97, true)
+  const outerMesh = parabolicSurfaceHelper(lats, longs, F, M, 1.0, false)
+  const mesh = new Float32Array(innerMesh.length + outerMesh.length)
+  mesh.set(innerMesh)
+  mesh.set(outerMesh, innerMesh.length)
+  return mesh
+}
+
+export function parabolicSurfaceHelper(lats, longs, F, M, scale=1.0, invertNormals=true) {
+  const xStep      = 1/lats         // Step size through the parabolic function domain
+  const hDivAngle  = 2*PI / longs   // Angle between longitudinal divisions
+
+  // For each line of latitude, make a list of `longs` points.
+  const latPoints = new Array(lats+1).fill(null).map(() => new Array(longs))
+  const tmp = vec3.create()
+  for(let i=0; i<=lats; i++) {
+    const array  = latPoints[i]        // Array to fill
+    const rx     = M * i/lats          // "x" value for parabolic function
+    const ry     = (rx**2)/(4*F)       // "y" value for parabolic function
+    if(i==0) scale = 1
+    const radius = rx // cos(decl)*scale     // Radius of latitude circle
+    const y      = ry // sin(decl)*scale     // Y coordinate for latitude circle
+    const angle  = atan2(rx / (2*F), 1)
+    for(let j=0; j<longs; j++) {
+      const asc = j * hDivAngle        // Right ascension
+      const x   = radius * sin(asc)    // X coordinate for point
+      const z   = radius * cos(asc)    // Z coordinate for point
+      const xyz = [x,y,z]
+      const zyx = [x,y,z]
+      if(invertNormals)
+        vec3.rotateY(tmp, xyz, xyz, PI/2) 
+      else
+        vec3.rotateY(tmp, xyz, xyz, PI/2) 
+      vec3.rotateY(tmp, tmp, [0,0,0], PI) 
+      const norm = invertNormals ? [-x,-y,-z] : [x,y,z]
+      array[j] = [...xyz, ...tmp, 0, 0]
+    }
+  }
+
+  // Points in a latitude circle (excluding the highest latitude) correspond to
+  // the lower left hand point of a rectangle, and thus two triangles. Points
+  // on the upper and lower latitudes generate an additional triangle at the
+  // poles. Although longitude is not well defined at the poles, the tips of
+  // these triangles is assigned a longitude at the midpoint of its two base
+  // vertices.
+
+  // Generate the rectangle segments first.
+  const data = new Float32Array(48*longs*(2*lats+1))
+  const len  = 48 * longs                             // Floats per latitude pair
+  for(let i=-lats; i<0; i++) {
+    const idx   = i + lats                            // Lower latitude index
+    const array = data.subarray(idx*len, (idx+1)*len) // Storage for latitude pair
+    const lower = latPoints[idx]                      // Lower latitude point array
+    const upper = latPoints[idx+1]                    // Upper latitude point array
+    for(let j=0; j<longs; j++) {                      // j is index of left longitude
+      const k   = (j+1) % longs                       // k is index of right longitude
+      const buf = array.subarray(j*48, (j+1)*48)      // Storage for 2-triangle segment
+      const tl  = upper[j]                            // Top left vertex of segment
+      const tr  = upper[k]                            // Top right vertex of segment
+      const bl  = lower[j]                            // Bottom left vertex of segment
+      const br  = lower[k]                            // Bottom right vertex of segment
+      buf.set([
+        ...bl,
+        ...tr,
+        ...tl,
+        ...bl,
+        ...br,
+        ...tr,
+      ])
+    }
+  }
+
+  // Generate the triangle segments at the poles
+  const lower = latPoints[0]                       // Lower latitude point array
+  const array = data.subarray(len*lats)            // Storage for triangle segments
+  for(let j=0; j<longs; j++) {                     // j is index of left longitude
+    const k     = (j+1) % longs                    // k is index of right longitude
+    const buf   = array.subarray(48*j,48*(j+1))    // Storage for N+S polar triangles
+    const sp1   = lower[j]                         // South point 1
+    const sp2   = lower[k]                         // South point 2
+    const norm  = invertNormals ? [0, 1, 0] : [0, -1, 0]
+    const sp    = [0, -1, 0, ...norm, 0, 0]       // South pole
+    buf.set([
+      ...sp1,
+      ...sp, 
+      ...sp2,
+    ])
+  }
+
+  return data
+}

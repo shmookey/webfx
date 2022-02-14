@@ -40,6 +40,21 @@ const html = `
       <input is='property-input' type='text' />
     </div>
   </div>
+  <div class='section aperture'>
+    <div class='section-label'>Aperture</div>
+    <div class='prop prop-wavelength'>
+      <label>λ</label>
+      <input is='property-wavelength' type='text' />
+    </div>
+    <div class='prop prop-dec'>
+      <label>δ</label>
+      <input is='property-dec' type='text' />
+    </div>
+    <div class='prop prop-ra'>
+      <label>α</label>
+      <input is='property-ra' type='text' />
+    </div>
+  </div>
 `
 
 let elements = {}
@@ -76,6 +91,7 @@ export function init() {
   elements.signalSection     = elem.querySelector('.section.signal')
   elements.positionSection   = elem.querySelector('.section.position')
   elements.identifierSection = elem.querySelector('.section.identifier')
+  elements.apertureSection   = elem.querySelector('.section.aperture')
   elements.camModeLandscape  = elem.querySelector('.camera-mode .landscape')
   elements.camModeMap        = elem.querySelector('.camera-mode .map')
   elements.camModeSky        = elem.querySelector('.camera-mode .sky')
@@ -86,7 +102,14 @@ export function init() {
   elements.dragModePan       = elem.querySelector('.drag-mode .drag-pan')
   elements.dragModeLook      = elem.querySelector('.drag-mode .drag-look')
   elements.dragModePivot     = elem.querySelector('.drag-mode .drag-pivot')
-  
+  elements.inputWavelength   = elem.querySelector('.prop-wavelength input')
+  elements.inputDEC          = elem.querySelector('.prop-dec input')
+  elements.inputRA           = elem.querySelector('.prop-ra input')
+ 
+  elements.inputWavelength.value = webfx.model.aperture.wavelength.toString()
+  elements.inputDEC.value        = webfx.model.aperture.declination.toString()
+  elements.inputRA.value         = webfx.model.aperture.ascension.toString()
+ 
   elements.inputX.addEventListener('change', submitChange('x'))
   elements.inputY.addEventListener('change', submitChange('y'))
   elements.inputZ.addEventListener('change', submitChange('z'))
@@ -122,10 +145,11 @@ export function useSource(descriptor) {
   elements.propX.style.display            = 'block'
   elements.propY.style.display            = 'block'
   elements.propZ.style.display            = 'block'
-  //elements.cameraSection.style.display    = 'none'
-  elements.positionSection.style.removeProperty('display')
-  elements.identifierSection.style.removeProperty('display')
-  elements.signalSection.style.removeProperty('display')
+  elements.cameraSection.classList.add('enabled')
+  elements.positionSection.classList.add('enabled')
+  elements.identifierSection.classList.add('enabled')
+  elements.signalSection.classList.add('enabled')
+  elements.apertureSection.classList.remove('enabled')
 
   elements.entityName.textContent = descriptor.name
   elements.colourBox.setAttribute('colour', descriptor.colour)
@@ -140,10 +164,11 @@ export function useAntenna(descriptor) {
   elements.propX.style.display = 'block'
   elements.propY.style.display = 'none'
   elements.propZ.style.display = 'block'
-  //elements.cameraSection.style.display = 'none'
-  elements.signalSection.style.display = 'none'
-  elements.positionSection.style.removeProperty('display')
-  elements.identifierSection.style.removeProperty('display')
+  elements.cameraSection.classList.add('enabled')
+  elements.positionSection.classList.add('enabled')
+  elements.identifierSection.classList.add('enabled')
+  elements.apertureSection.classList.remove('enabled')
+  elements.signalSection.classList.remove('enabled')
   elements.colourBox.setAttribute('colour', descriptor.colour)
   elements.entityName.textContent = descriptor.name
   elements.inputX.setAttribute('value', descriptor.position[0].toString())
@@ -155,10 +180,11 @@ export function useDefaultControls() {
   elements.propX.style.display = 'none'
   elements.propY.style.display = 'none'
   elements.propZ.style.display = 'none'
-  //elements.cameraSection.style.removeProperty('display')
-  elements.signalSection.style.display = 'none'
-  elements.positionSection.style.display = 'none'
-  elements.identifierSection.style.display = 'none'
+  elements.cameraSection.classList.add('enabled')
+  elements.apertureSection.classList.add('enabled')
+  elements.signalSection.classList.remove('enabled')
+  elements.positionSection.classList.remove('enabled')
+  elements.identifierSection.classList.remove('enabled')
 }
 
 function submitChange(prop) {

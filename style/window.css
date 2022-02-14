@@ -52,7 +52,7 @@
   background-size:     contain;
   background-color:    transparent;
 }
-.window .control-bar button:hover {
+.window .control-bar button.enabled:hover {
   background-color: #404050;
 }
 .window .control-bar .left {

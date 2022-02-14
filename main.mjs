@@ -43,62 +43,62 @@ window.addEventListener('load', async () => {
   elements.tabs.scene.addEventListener('click', () => setView('scene'))
   elements.canvas.addEventListener('contextmenu', () => false)
   await gpu.init(elements.canvas)
-  const blocks = {
-    waveSourceA:   memory.allocate('wave-source-a'),
-    waveSourceB:   memory.allocate('wave-source-b'),
-    waveSourceC:   memory.allocate('wave-source-c'),
-    waveSourceD:   memory.allocate('wave-source-d'),
-    waveReceiverA: memory.allocate('wave-receiver-a'),
-    waveReceiverB: memory.allocate('wave-receiver-b'),
-    waveReceiverC: memory.allocate('wave-receiver-c'),
-    waveReceiverD: memory.allocate('wave-receiver-d'),
-    waveReceiverE: memory.allocate('wave-receiver-e'),
-    waveReceiverF: memory.allocate('wave-receiver-f'),
-    waveReceiverG: memory.allocate('wave-receiver-g'),
-    waveReceiverH: memory.allocate('wave-receiver-h'),
-    dftSourceA:    memory.allocate('dft-source-a'),
-    dftSourceB:    memory.allocate('dft-source-b'),
-    dftSourceC:    memory.allocate('dft-source-c'),
-    dftSourceD:    memory.allocate('dft-source-d'),
-    dftReceiverA:  memory.allocate('dft-receiver-a'),
-    dftReceiverB:  memory.allocate('dft-receiver-b'),
-    dftReceiverC:  memory.allocate('dft-receiver-c'),
-    dftReceiverD:  memory.allocate('dft-receiver-d'),
-    dftReceiverE:  memory.allocate('dft-receiver-e'),
-    dftReceiverF:  memory.allocate('dft-receiver-f'),
-    dftReceiverG:  memory.allocate('dft-receiver-g'),
-    dftReceiverH:  memory.allocate('dft-receiver-h'),
-    cdftReceiverA:  memory.allocate('cdft-receiver-a'),
-    cdftReceiverB:  memory.allocate('cdft-receiver-b'),
-    cdftReceiverC:  memory.allocate('cdft-receiver-c'),
-    cdftReceiverD:  memory.allocate('cdft-receiver-d'),
-    cdftReceiverE:  memory.allocate('cdft-receiver-e'),
-    cdftReceiverF:  memory.allocate('cdft-receiver-f'),
-    cdftReceiverG:  memory.allocate('cdft-receiver-g'),
-    cdftReceiverH:  memory.allocate('cdft-receiver-h'),
-    cdftSourceA:    memory.allocate('dft-source-a-complex'),
-    cdftSourceB:    memory.allocate('dft-source-b-complex'),
-    cdftSourceC:    memory.allocate('dft-source-c-complex'),
-    cdftSourceD:    memory.allocate('dft-source-d-complex'),
-    correlator:    memory.allocate('correlator-output'),
-    dftcorrelator:    memory.allocate('correlator-output-dft'),
-    dftcorrelator2:    memory.allocate('correlator-output-dft-2'),
-    dftcorrelator3:    memory.allocate('correlator-output-dft-3'),
-    dftcorrelator4:    memory.allocate('correlator-output-dft-4'),
-    dftcorrelator5:    memory.allocate('correlator-output-dft-5'),
-    cdftcorrelator:    memory.allocate('correlator-output-dft-complex'),
-    cdftcorrelator:    memory.allocate('correlator-output-dft-complex'),
-    xco1:              memory.allocate('correlator-tmp-1'),
-    xco2:              memory.allocate('correlator-tmp-2'),
-    xco3:              memory.allocate('correlator-tmp-3'),
-    xco4:              memory.allocate('correlator-tmp-4'),
-    xco5:              memory.allocate('correlator-tmp-5'),
-    xco6:              memory.allocate('correlator-tmp-6'),
-    xco7:              memory.allocate('correlator-tmp-7'),
-    xco8:              memory.allocate('correlator-tmp-8'),
-  }
-  window.webfx.blocks = blocks
-  webfx.views.signals = signalsView.create(blocks)
+  //const blocks = {
+  //  waveSourceA:   memory.allocate('wave-source-a'),
+  //  waveSourceB:   memory.allocate('wave-source-b'),
+  //  waveSourceC:   memory.allocate('wave-source-c'),
+  //  waveSourceD:   memory.allocate('wave-source-d'),
+  //  waveReceiverA: memory.allocate('wave-receiver-a'),
+  //  waveReceiverB: memory.allocate('wave-receiver-b'),
+  //  waveReceiverC: memory.allocate('wave-receiver-c'),
+  //  waveReceiverD: memory.allocate('wave-receiver-d'),
+  //  waveReceiverE: memory.allocate('wave-receiver-e'),
+  //  waveReceiverF: memory.allocate('wave-receiver-f'),
+  //  waveReceiverG: memory.allocate('wave-receiver-g'),
+  //  waveReceiverH: memory.allocate('wave-receiver-h'),
+  //  dftSourceA:    memory.allocate('dft-source-a'),
+  //  dftSourceB:    memory.allocate('dft-source-b'),
+  //  dftSourceC:    memory.allocate('dft-source-c'),
+  //  dftSourceD:    memory.allocate('dft-source-d'),
+  //  dftReceiverA:  memory.allocate('dft-receiver-a'),
+  //  dftReceiverB:  memory.allocate('dft-receiver-b'),
+  //  dftReceiverC:  memory.allocate('dft-receiver-c'),
+  //  dftReceiverD:  memory.allocate('dft-receiver-d'),
+  //  dftReceiverE:  memory.allocate('dft-receiver-e'),
+  //  dftReceiverF:  memory.allocate('dft-receiver-f'),
+  //  dftReceiverG:  memory.allocate('dft-receiver-g'),
+  //  dftReceiverH:  memory.allocate('dft-receiver-h'),
+  //  cdftReceiverA:  memory.allocate('cdft-receiver-a'),
+  //  cdftReceiverB:  memory.allocate('cdft-receiver-b'),
+  //  cdftReceiverC:  memory.allocate('cdft-receiver-c'),
+  //  cdftReceiverD:  memory.allocate('cdft-receiver-d'),
+  //  cdftReceiverE:  memory.allocate('cdft-receiver-e'),
+  //  cdftReceiverF:  memory.allocate('cdft-receiver-f'),
+  //  cdftReceiverG:  memory.allocate('cdft-receiver-g'),
+  //  cdftReceiverH:  memory.allocate('cdft-receiver-h'),
+  //  cdftSourceA:    memory.allocate('dft-source-a-complex'),
+  //  cdftSourceB:    memory.allocate('dft-source-b-complex'),
+  //  cdftSourceC:    memory.allocate('dft-source-c-complex'),
+  //  cdftSourceD:    memory.allocate('dft-source-d-complex'),
+  //  correlator:    memory.allocate('correlator-output'),
+  //  dftcorrelator:    memory.allocate('correlator-output-dft'),
+  //  dftcorrelator2:    memory.allocate('correlator-output-dft-2'),
+  //  dftcorrelator3:    memory.allocate('correlator-output-dft-3'),
+  //  dftcorrelator4:    memory.allocate('correlator-output-dft-4'),
+  //  dftcorrelator5:    memory.allocate('correlator-output-dft-5'),
+  //  cdftcorrelator:    memory.allocate('correlator-output-dft-complex'),
+  //  cdftcorrelator:    memory.allocate('correlator-output-dft-complex'),
+  //  xco1:              memory.allocate('correlator-tmp-1'),
+  //  xco2:              memory.allocate('correlator-tmp-2'),
+  //  xco3:              memory.allocate('correlator-tmp-3'),
+  //  xco4:              memory.allocate('correlator-tmp-4'),
+  //  xco5:              memory.allocate('correlator-tmp-5'),
+  //  xco6:              memory.allocate('correlator-tmp-6'),
+  //  xco7:              memory.allocate('correlator-tmp-7'),
+  //  xco8:              memory.allocate('correlator-tmp-8'),
+  //}
+  //window.webfx.blocks = blocks
+  //webfx.views.signals = signalsView.create(blocks)
   webfx.views.scene   = sceneView.create()
   //wavegen.addJob(blocks.waveSourceA, [
   //  1.0,   0.0,   0.0,  0.0,
@@ -221,9 +221,9 @@ window.addEventListener('load', async () => {
     }
   })
 
-  document.querySelector('#wrapper').appendChild(webfx.views.signals)
-  webfx.currentView = webfx.views.signals
-  webfx.currentViewName = 'signals'
+  document.querySelector('#wrapper').appendChild(webfx.views.scene)
+  webfx.currentView = webfx.views.scene
+  webfx.currentViewName = 'scene'
   elements.tabs[webfx.currentViewName].classList.add('active')
   setTimeout(() => { webfx.state.dirty = true }, 0)
   webfx.views.scene.addEventListener('dirty', () => { webfx.state.dirty = true })

@@ -11,6 +11,7 @@ SourceSetCoefficients   = (id, coefficients) => ({type:'SourceSetCoefficients', 
 SourceMoved             = (id, position) => ({type:'SourceMoved', id, position}),
 SourceEnabled           = (id) => ({type:'SourceEnabled', id}),
 SourceDisabled          = (id) => ({type:'SourceDisabled', id}),
+SourceSetAnnotations    = (id, enabled) => ({type:'SourceSetAnnotations', id, enabled}),
 
 AntennaCreated          = (descriptor) => ({type:'AntennaCreated', descriptor}),
 AntennaDeleted          = (id) => ({type:'AntennaDeleted', id}),
@@ -19,6 +20,17 @@ AntennaSetColour        = (id, colour) => ({type:'AntennaSetColour', id, colour}
 AntennaMoved            = (id, position) => ({type:'AntennaMoved', id, position}),
 AntennaEnabled          = (id) => ({type:'AntennaEnabled', id}),
 AntennaDisabled         = (id) => ({type:'AntennaDisabled', id}),
+AntennaSetAnnotations   = (id, enabled) => ({type:'AntennaSetAnnotations', id, enabled}),
+
+BaselineCreated         = (descriptor) => ({type:'BaselineCreated', descriptor}),
+BaselineDeleted         = (id) => ({type:'BaselineDeleted', id}),
+BaselineMoved           = (id, position) => ({type:'BaselineMoved', id, position}),
+BaselineSetEnabled      = (id, enabled) => ({type:'BaselineSetEnabled', id, enabled}),
+BaselineSetAnnotations  = (id, annotations) => ({type:'BaselineSetAnnotations', id, annotations}),
+
+ApertureSetWavelength   = (wavelength) => ({type:'ApertureSetWavelength', wavelength}),
+ApertureSetDeclination  = (declination) => ({type:'ApertureSetDeclination', declination}),
+ApertureSetAscension    = (ascension) => ({type:'ApertureSetAscension', ascension}),
 
 CameraModeChanged       = (mode) => ({type:'CameraModeChanged', mode}),
 CameraFlyaroundEnabled  = () => ({type:'CameraFlyaroundEnabled'}),

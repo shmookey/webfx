@@ -1,7 +1,7 @@
 #objects-panel {
   left:   20px;
   top:    60px;
-  width:  240px;
+  width:  260px;
   height: 360px;
 }
 
@@ -9,17 +9,40 @@
   display: flex;
   height: 30px;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 0px;
 }
-
+#objects-panel .group-name {
+  width: 120px;
+}
 
 #objects-panel button.add { 
   background-image: url('/icon/add_white_24dp.svg');
-  margin-right: 10px;
+  margin-right: 20px;
 }
 
 #objects-panel button.delete    { background-image: url('/icon/delete_white_24dp.svg'); }
 #objects-panel button.duplicate { background-image: url('/icon/content_copy_white_24dp.svg');
                                   background-size:  85%; }
 
+#objects-panel .group.collapsed item-select {
+  display: none;
+}
+
+#objects-panel button.expand-group {
+  background-color: transparent;
+  background-image: url('/icon/arrow_drop_down_white_24dp.svg');
+  mix-blend-mode:   normal;
+  width:            18px;
+  height:           18px;
+  margin:           0 3px;
+  opacity:          0.8;
+}
+
+#objects-panel button.expand-group:hover {
+  opacity:          1.0;
+}
+
+#objects-panel .group.collapsed button.expand-group {
+  background-image: url('/icon/arrow_right_white_24dp.svg');
+}
 

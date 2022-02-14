@@ -8,6 +8,8 @@ import * as renderSkybox     from '/render/skybox.mjs'
 import * as meshes           from '/render/meshes.mjs'
 import * as propbarView      from '/view/propbar.mjs'
 import * as objectsPanelView from '/view/objects-panel.mjs'
+import {Entity}              from '/render/entity.mjs'
+import {AntennaEntity}       from '/render/antenna.mjs'
 import {mat4,vec3}           from '/gl-matrix/dist/esm/index.js'
 
 const {sqrt, asin, acos, atan2, sin, tan, cos} = Math
@@ -30,22 +32,23 @@ let canvas              = null
 
 const viewState = {
   aspect:                  1,
-  cameraPosition:          new Float32Array([0, 1.0, 2]),
+  cameraPosition:          new Float32Array([0, 2.0, 2]),
   cameraTarget:            new Float32Array([0, 0.0, 0]),
-  cameraRelPosition:       new Float32Array([0, 1.0, 2]),
+  cameraRelPosition:       new Float32Array([0, 2.0, 2]),
   cameraMode:              'landscape',
   cameraFlyaroundRotation: null,
   cameraFlyaroundOrigin:   null,
   cameraFlyaroundStart:    null,
   cameraFlyaroundEnabled:  false,
   animationTime:           0,
-  lightSourcePosition:     [1, 3, 1],
+  lightSourcePosition:     [0, 3, 0],
   gridWidth:               12,
   gridDepth:               12,
   gridTickSpacing:         0.05,
   gridLineThickness:       0.005,
   dragging:                false,
   dragMode:                'pan',
+  selected:                null,
 }
 
 const viewHTML = `
@@ -65,6 +68,9 @@ export async function init(deviceRef, aspect, presentationFormat, canvasElement)
     size:  globalsData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
   })
+  webfx.globalsBuffer = globalsBuffer
+  webfx.device = device
+  await AntennaEntity.init()
   await grid.init(deviceRef, presentationFormat, globalsBuffer)
   await renderSkybox.init(deviceRef, presentationFormat, globalsBuffer)
   await renderObject.init(deviceRef, presentationFormat, globalsBuffer)
@@ -84,22 +90,37 @@ export function create(device) {
   viewElement.classList.add('top-level-view')
   viewElement.innerHTML = viewHTML
   elems = {
-    skybox: viewElement.querySelector('#skybox'),
-    grid: viewElement.querySelector('#grid'),
+    skybox:       viewElement.querySelector('#skybox'),
+    grid:         viewElement.querySelector('#grid'),
     renderedArea: viewElement.querySelector('#rendered-area'),
     propBar:      propbarView.init(),
-    objectsPanel:   objectsPanelView.init(),
+    objectsPanel: objectsPanelView.init(),
   }
   elems.objectsPanel.addEventListener('select', ev => {
     let entity = null
     if(ev.detail == null) {
       propbarView.useDefaultControls()
+      if(viewState.selected) {
+        viewState.selected.job.selected = false
+        viewState.selected = null
+        emitDirty()
+      }
     } else if(ev.detail.type == 'source') {
-      entity = webfx.model.sources.find(x => x.id == ev.detail.id)
-      propbarView.useSource(entity)
+      entity = jobs.sources[ev.detail.id]
+      if(viewState.selected != entity && viewState.selected)
+        viewState.selected.job.selected = false
+      viewState.selected = entity
+      entity.job.selected = true
+      propbarView.useSource(entity.descriptor)
+      emitDirty()
     } else if(ev.detail.type == 'antenna') {
-      entity = webfx.model.antennas.find(x => x.id == ev.detail.id)
-      propbarView.useAntenna(entity)
+      entity = jobs.antennas[ev.detail.id]
+      if(viewState.selected != entity && viewState.selected)
+        viewState.selected.job.selected = false
+      viewState.selected = entity
+      entity.job.selected = true
+      propbarView.useAntenna(entity.descriptor)
+      emitDirty()
     }
   })
   elems.renderedArea.addEventListener('mousedown', async ev => {
@@ -248,6 +269,19 @@ export function apply(effect) {
     objectsPanelView.apply(effect)
     removeSource(effect.id)
     break
+  case 'SourceEnabled':
+    objectsPanelView.apply(effect)
+    jobs.sources[effect.id].job.setEnabled(true)
+    emitDirty()
+    break
+  case 'SourceDisabled':
+    objectsPanelView.apply(effect)
+    jobs.sources[effect.id].job.setEnabled(false)
+    emitDirty()
+    break
+  case 'SourceSetAnnotations':
+    objectsPanelView.apply(effect)
+    break
   case 'AntennaCreated':
     objectsPanelView.apply(effect)
     addAntenna(effect.descriptor)
@@ -260,6 +294,21 @@ export function apply(effect) {
   case 'AntennaDeleted':
     objectsPanelView.apply(effect)
     removeAntenna(effect.id)
+    break
+  case 'AntennaEnabled':
+    objectsPanelView.apply(effect)
+    jobs.antennas[effect.id].job.setEnabled(true)
+    emitDirty()
+    break
+  case 'AntennaDisabled':
+    objectsPanelView.apply(effect)
+    jobs.antennas[effect.id].job.setEnabled(false)
+    emitDirty()
+    break
+  case 'AntennaSetAnnotations':
+    objectsPanelView.apply(effect)
+    jobs.antennas[effect.id].job.annotated = effect.enabled
+    emitDirty()
     break
   case 'CameraModeChanged':
     propbarView.apply(effect)
@@ -299,12 +348,7 @@ export function apply(effect) {
 }
 
 function addAntenna(descriptor) {
-  const job = renderObject.create(
-    meshes.antenna(),
-    [1.0, 1.0, 1.0, 1],
-    descriptor.position,
-    [0.1, 0.1, 0.1],
-  )
+  const job = new AntennaEntity(descriptor) 
   const element = document.createElement('render-target')
   element.renderer = job
   viewElement.appendChild(element)
@@ -314,7 +358,7 @@ function addAntenna(descriptor) {
 
 function addSource(descriptor) {
   const job = renderGlobe.create(
-    meshes.globe(4, 12),
+    meshes.globe(4, 16),
     [1.0, 1.0, 1.0, 1],
     descriptor.position,
     [1.0, 1.0, 1.0],

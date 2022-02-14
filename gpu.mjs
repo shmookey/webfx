@@ -11,198 +11,245 @@ import * as waverender from '/render/wave.mjs'
 import {RenderGroup}   from '/render/group.mjs'
 import {JobSet}        from '/jobset.mjs'
 
-let adapter               = null
-let device                = null
-let context               = null
-let devicePixelRatio      = null
-let presentationSize      = null
-let presentationFormat    = null
-let renderPassDescriptor  = null
-let renderTarget          = null
-let renderTargetView      = null
-let renderJobs            = new JobSet()
-let computeJobs           = new JobSet()
-let depthTexture          = null
-let resolvedDepthTexture  = null
-let pickerTexture         = null
-let viewportUniformBuffer = null
-let depthExtractBuffer    = null
-
-export async function init(canvas) {
-  const aspect = canvas.width / canvas.height
-  webfx.renderJobs = renderJobs
-  webfx.computeJobs = computeJobs
-  adapter = await navigator.gpu.requestAdapter()
-  device = await adapter.requestDevice()
-  context = canvas.getContext('webgpu')
-  devicePixelRatio = window.devicePixelRatio || 1
-  presentationSize = [
-    canvas.clientWidth * devicePixelRatio,
-    canvas.clientHeight * devicePixelRatio,
-  ]
-  presentationFormat = context.getPreferredFormat(adapter)
-  context.configure({
-    device,
-    format: presentationFormat,
-    size: presentationSize,
-  })
-  renderTarget = device.createTexture({
-    size: presentationSize,
-    format: presentationFormat,
-    sampleCount: config.MULTISAMPLE_COUNT,
-    usage: GPUTextureUsage.RENDER_ATTACHMENT
-  })
-  renderTargetView = renderTarget.createView()
-  depthTexture = device.createTexture({
-    size: presentationSize,
-    format: 'depth32float',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    sampleCount: config.MULTISAMPLE_COUNT,
-  })
-  resolvedDepthTexture = device.createTexture({
-    size: presentationSize,
-    format: 'depth32float',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-    sampleCount: 1,
-  })
-  pickerTexture = device.createTexture({
-    size: presentationSize,
-    format: 'r32uint',
-    usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    sampleCount: config.MULTISAMPLE_COUNT,
-  })
-  viewportUniformBuffer = device.createBuffer({
-    size: 2*4,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  })
-  depthExtractBuffer = device.createBuffer({
-    size: 64*Math.ceil(presentationSize[0]/64)*presentationSize[1],
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-  })
-  device.queue.writeBuffer(viewportUniformBuffer, 0, new Float32Array(presentationSize))
-  renderPassDescriptor = {
+const gpu = {
+  canvas:                null,
+  adapter:               null,
+  device:                null,
+  context:               null,
+  renderPassDescriptor:  null,
+  presentation: {
+    size:                new Float32Array(2),
+    pixelRatio:          null,
+    format:              null,
+    aspect:              null,
+  },
+  buffers: {
+    viewportUniforms:    null,
+    depthExtraction:     null,
+  },
+  attachments: {
+    colour:              null,
+    depth:               null,
+    picker:              null,
+  },
+  jobs: {
+    render:              new JobSet(),
+    compute:             new JobSet(),
+  },
+  renderPassDescriptor: {
     colorAttachments: [{
-        view: renderTargetView,
-        resolveTarget: null,
-        loadValue: { r: 0.06, g: 0.06, b: 0.09, a: 1.0 },
-        storeOp: 'store'
+      view:          null,
+      resolveTarget: null,
+      loadValue:     {r: 0, g: 0, b: 0, a: 1},
+      storeOp:       'store'
     }, {
-        view: pickerTexture.createView(),
-        loadValue: { r: 0, g:0, b:0, a:0 },
-        storeOp: 'store'
+      view:          null,
+      loadValue:     {r: 0, g: 0, b: 0, a: 0},
+      storeOp:       'store'
     }],
     depthStencilAttachment: {
-      view: depthTexture.createView(),
-      resolveTarget: resolvedDepthTexture.createView(),
-      depthLoadValue: 1.0,
-      depthStoreOp: 'store',
+      view:             null,
+      depthLoadValue:   1,
+      depthStoreOp:     'store',
       stencilLoadValue: 0,
-      stencilStoreOp: 'store',
-    },
+      stencilStoreOp:   'store',
+    }
   }
-  memory.init(device)
-  await RenderGroup.init(device, presentationFormat, viewportUniformBuffer)
-  await wavegen.init(device)
-  await dft.init(device)
-  await wavemix.init(device)
-  await xcorrelate.init(device)
-  await waverender.init(device, presentationFormat)
-  await dftrender.init(device, context, presentationFormat, memory.getBuffer())
-  await sceneView.init(device, aspect, presentationFormat, canvas)
-  waverender.setViewportSize(...presentationSize)
-  dftrender.setViewportSize(...presentationSize)
+}
+
+export async function init(canvas) {
+  webfx.gpu               = gpu
+  gpu.adapter             = await navigator.gpu.requestAdapter()
+  gpu.device              = await gpu.adapter.requestDevice()
+  gpu.canvas              = canvas
+  gpu.context             = canvas.getContext('webgpu')
+  gpu.presentation.format = gpu.context.getPreferredFormat(gpu.adapter)
+  initPresentationGeometry()
+  initRenderAttachments()
+  configureCanvasContext()
+  setupBuffers()
+  await sceneView.init(gpu.device, gpu.presentation.aspect, gpu.presentation.format, gpu.canvas)
+
+  //memory.init(device)
+  //await RenderGroup.init(device, presentationFormat, viewportUniformBuffer)
+  //await wavegen.init(device)
+  //await dft.init(device)
+  //await wavemix.init(device)
+  //await xcorrelate.init(device)
+  //await waverender.init(device, presentationFormat)
+  //await dftrender.init(device, context, presentationFormat, memory.getBuffer())
+  //waverender.setViewportSize(...presentationSize)
+  //dftrender.setViewportSize(...presentationSize)
 
   const resizeObserver = new ResizeObserver(entries => {
-    const r = canvas.getBoundingClientRect()
-    presentationSize = [r.width, r.height]
-    const aspect = r.width / r.height
-    context.configure({
-      device,
-      format: presentationFormat,
-      size: presentationSize,
-    })
-    waverender.setViewportSize(r.width, r.height)
-    dftrender.setViewportSize(r.width, r.height)
-    renderTarget.destroy()
-    renderTarget = device.createTexture({
-      size: presentationSize,
-      format: presentationFormat,
-      sampleCount: config.MULTISAMPLE_COUNT,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT
-    })
-    depthTexture.destroy()
-    depthTexture = device.createTexture({
-      size: presentationSize,
-      format: 'depth32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-      sampleCount: config.MULTISAMPLE_COUNT,
-    })
-    resolvedDepthTexture.destroy()
-    resolvedDepthTexture = device.createTexture({
-      size: presentationSize,
-      format: 'depth32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-      sampleCount: 1,
-    })
-    pickerTexture.destroy()
-    pickerTexture = device.createTexture({
-      size: presentationSize,
-      format: 'r32uint',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      sampleCount: config.MULTISAMPLE_COUNT,
-    })
-    depthExtractBuffer.destroy()
-    depthExtractBuffer = device.createBuffer({
-      size: 4*64*Math.ceil(presentationSize[0]/64)*presentationSize[1],
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    })
-    device.queue.writeBuffer(viewportUniformBuffer, 0, new Float32Array(presentationSize))
-    renderPassDescriptor.colorAttachments[0].view = renderTarget.createView()
+    const oldAspect = gpu.presentation.aspect
+
+    initPresentationGeometry()
+    initRenderAttachments()
+    configureCanvasContext()
+    setupBuffers()
+
+    if(gpu.presentation.aspect != oldAspect) 
+      post(actions.ChangeAspect(gpu.presentation.aspect))
+    
+    //const r = canvas.getBoundingClientRect()
+    //presentationSize.set([r.width, r.height])
+    //const aspect = r.width / r.height
+    //context.configure({
+    //  device,
+    //  format: presentationFormat,
+    //  size: presentationSize,
+    //})
+
+    //waverender.setViewportSize(r.width, r.height)
+    //dftrender.setViewportSize(r.width, r.height)
+    //renderTarget.destroy()
+    //renderTarget = device.createTexture({
+    //  size: presentationSize,
+    //  format: presentationFormat,
+    //  sampleCount: config.MULTISAMPLE_COUNT,
+    //  usage: GPUTextureUsage.RENDER_ATTACHMENT
+    //})
+    //depthTexture.destroy()
+    //depthTexture = device.createTexture({
+    //  size: presentationSize,
+    //  format: 'depth32float',
+    //  usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    //  sampleCount: config.MULTISAMPLE_COUNT,
+    //})
+    //resolvedDepthTexture.destroy()
+    //resolvedDepthTexture = device.createTexture({
+    //  size: presentationSize,
+    //  format: 'depth32float',
+    //  usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    //  sampleCount: 1,
+    //})
+    //pickerTexture.destroy()
+    //pickerTexture = device.createTexture({
+    //  size: presentationSize,
+    //  format: 'r32uint',
+    //  usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    //  sampleCount: config.MULTISAMPLE_COUNT,
+    //})
+    //depthExtractBuffer.destroy()
+    //depthExtractBuffer = device.createBuffer({
+    //  size: 4*64*Math.ceil(presentationSize[0]/64)*presentationSize[1],
+    //  usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    //})
+    //device.queue.writeBuffer(viewportUniformBuffer, 0, new Float32Array(presentationSize))
+
+    //renderPassDescriptor.colorAttachments[0].view = renderTarget.createView()
     //renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
-    renderPassDescriptor.colorAttachments[1].view = pickerTexture.createView()
-    renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView()
-    renderPassDescriptor.depthStencilAttachment.resolveTarget = resolvedDepthTexture.createView()
-    document.querySelectorAll('wave-view').forEach(e => e.updateRect())
-    post(actions.ChangeAspect(aspect))
+    //renderPassDescriptor.colorAttachments[1].view = pickerTexture.createView()
+    //renderPassDescriptor.depthStencilAttachment.view = depthTexture.createView()
+    //renderPassDescriptor.depthStencilAttachment.resolveTarget = resolvedDepthTexture.createView()
+
+    //document.querySelectorAll('wave-view').forEach(e => e.updateRect())
   })
   resizeObserver.observe(document.querySelector('body'))
 
 }
 
+function initRenderAttachments() {
+  if(gpu.attachments.colour) gpu.attachments.colour.destroy()
+  if(gpu.attachments.depth)  gpu.attachments.depth.destroy()
+  if(gpu.attachments.picker) gpu.attachments.picker.destroy()
+
+  gpu.attachments.colour = gpu.device.createTexture({
+    size:        gpu.presentation.size,
+    format:      gpu.presentation.format,
+    usage:       GPUTextureUsage.RENDER_ATTACHMENT,
+    sampleCount: config.MULTISAMPLE_COUNT,
+  })
+  gpu.attachments.depth = gpu.device.createTexture({
+    size:        gpu.presentation.size,
+    format:      'depth32float',
+    usage:       GPUTextureUsage.RENDER_ATTACHMENT,
+    sampleCount: config.MULTISAMPLE_COUNT,
+  })
+  gpu.attachments.picker = gpu.device.createTexture({
+    size:        gpu.presentation.size,
+    format:      'r32uint',
+    usage:       GPUTextureUsage.RENDER_ATTACHMENT,
+    sampleCount: config.MULTISAMPLE_COUNT,
+  })
+
+  gpu.renderPassDescriptor.colorAttachments[0].view    = gpu.attachments.colour.createView()
+  gpu.renderPassDescriptor.colorAttachments[1].view    = gpu.attachments.picker.createView()
+  gpu.renderPassDescriptor.depthStencilAttachment.view = gpu.attachments.depth.createView()
+}
+
+function initPresentationGeometry() {
+  const pixelRatio            = window.devicePixelRatio || 1
+  const clientSize            = [gpu.canvas.clientWidth, gpu.canvas.clientHeight]
+  const presentationSize      = [clientSize[0] * pixelRatio, clientSize[1] * pixelRatio]
+  gpu.presentation.pixelRatio = pixelRatio
+  gpu.presentation.size[0]    = clientSize[0] * pixelRatio 
+  gpu.presentation.size[1]    = clientSize[1] * pixelRatio 
+  gpu.presentation.aspect     = clientSize[0] / clientSize[1]
+}
+
+function configureCanvasContext() {
+  gpu.context.configure({
+    device: gpu.device,
+    format: gpu.presentation.format,
+    size:   gpu.presentation.size,
+  })
+}
+
+function setupBuffers() {
+  if(gpu.buffers.depthExtraction) gpu.buffers.depthExtraction.destroy()
+  gpu.buffers.depthExtraction = gpu.device.createBuffer({
+    size:  64*Math.ceil(gpu.presentation.size[0]/64)*gpu.presentation.size[1],
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+  })
+
+  // Don't bother recreating viewport uniform buffer if already set up
+  if(!gpu.buffers.viewportUniforms) {
+    gpu.buffers.viewportUniforms = gpu.device.createBuffer({
+      size:  8,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    })
+  }
+  gpu.device.queue.writeBuffer(gpu.buffers.viewportUniforms, 0, gpu.presentation.size)
+}
+
+
 export function addRenderJob(job) {
-  renderJobs.add(job)
+  gpu.jobs.render.add(job)
 }
 
 export function removeRenderJob(job) {
-  renderJobs.remove(job)
+  gpu.jobs.render.remove(job)
 }
 
 export function addComputeJob(job) {
-  computeJobs.add(job)
+  gpu.jobs.compute.add(job)
 }
 
 export function removeComputeJob(job) {
-  computeJobs.remove(job)
+  gpu.jobs.compute.remove(job)
 }
 
 export function renderFrame(time) {
-  wavegen.setTime(time)
-  renderPassDescriptor.colorAttachments[0].resolveTarget = context.getCurrentTexture().createView()
+  //wavegen.setTime(time)
+  gpu.renderPassDescriptor.colorAttachments[0].resolveTarget = 
+    gpu.context.getCurrentTexture().createView()
   //renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView()
+  //{
+  //  const commandEncoder = device.createCommandEncoder()
+  //  wavegen.queueComputePass(commandEncoder)
+  //  wavemix.queueComputePass(commandEncoder)
+  //  dft.queueComputePass(commandEncoder)
+  //  xcorrelate.queueComputePass(commandEncoder)
+  //  device.queue.submit([commandEncoder.finish()])
+  //}
   {
-    const commandEncoder = device.createCommandEncoder()
-    wavegen.queueComputePass(commandEncoder)
-    wavemix.queueComputePass(commandEncoder)
-    dft.queueComputePass(commandEncoder)
-    xcorrelate.queueComputePass(commandEncoder)
-    device.queue.submit([commandEncoder.finish()])
-  }
-  {
-    const commandEncoder = device.createCommandEncoder()
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor)
-    renderJobs.all.forEach(job => job.render(passEncoder))
+    const commandEncoder = gpu.device.createCommandEncoder()
+    const passEncoder    = commandEncoder.beginRenderPass(gpu.renderPassDescriptor)
+    gpu.jobs.render.all.forEach(job => job.render(passEncoder))
     passEncoder.endPass()
-    device.queue.submit([commandEncoder.finish()])
+    gpu.device.queue.submit([commandEncoder.finish()])
   }
 }
 

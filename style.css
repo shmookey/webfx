@@ -77,22 +77,31 @@ wave-view {
 #tabs {
   width: 100vw;
   display: flex;
-  background-color: #333;
+  background-color: #202030;
   position: relative;
-  height: 28px;
-  top: -28px;
+  height: 32px;
+  top: -32px;
+  border-top: 2px solid #404050;
 }
 
 .tab {
-  margin: 5px 10px;
+  margin: 0px 5px;
+  padding: 5px 10px;
+  opacity: 0.8;
 }
 
 .tab.active {
-  color: #D0D020;
+  background-color: #404050;
+  opacity: 1.0;
+}
+
+.tab.active:hover {
+  background-color: #404050;
 }
 
 .tab:hover {
-  text-decoration: underline;
+  background-color: #303040;
+  opacity: 1.0;
 }
 
 button.enabled:before {

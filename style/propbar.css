@@ -10,9 +10,12 @@
 }
 
 #prop-bar .section {
-  display: flex;
+  display: none;
   align-items: center;
   margin:  0 10px;
+}
+#prop-bar .section.enabled {
+  display: flex;
 }
 
 #prop-bar .entity-name {
@@ -56,4 +59,10 @@
 #prop-bar button.drag-pan   { background-image: url('/icon/pan_tool_white_24dp.svg'); }
 #prop-bar button.drag-look  { background-image: url('/icon/control_camera_white_24dp.svg'); }
 #prop-bar button.drag-pivot { background-image: url('/icon/camera_indoor_white_24dp.svg'); }
+
+#prop-bar .prop-dec label,
+#prop-bar .prop-ra label,
+#prop-bar .prop-wavelength label {
+  font-size: 14px;
+}
 

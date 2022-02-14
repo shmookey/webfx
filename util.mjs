@@ -31,12 +31,13 @@ export function* colourGenerator() {
 export function* groundPositionGenerator() {
   let angle = 0
   let dist  = 0
-  yield [dist*sin(angle), 0, dist*cos(angle)].map(x => roundTo(x, 4))
-  dist = 4
+  const y = 0
+  yield [dist*sin(angle), y, dist*cos(angle)].map(x => roundTo(x, 4))
+  dist = 1
   while(true) {
-    dist += 1.5
+    dist += 0.2
     angle += PI/3
-    yield [dist*sin(angle), 0, dist*cos(angle)].map(x => roundTo(x, 4))
+    yield [dist*sin(angle), y, dist*cos(angle)].map(x => roundTo(x, 4))
   }
 }
 

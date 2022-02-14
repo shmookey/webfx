@@ -22,6 +22,7 @@ SetSourceX            = (id, x) => ({type:'SetSourceX', id, x}),
 SetSourceY            = (id, y) => ({type:'SetSourceY', id, y}),
 SetSourceZ            = (id, z) => ({type:'SetSourceZ', id, z}),
 SetSourceEnabled      = (id, enabled) => ({type:'SetSourceEnabled', id, enabled}),
+SetSourceAnnotations  = (id, enabled) => ({type:'SetSourceAnnotations', id, enabled}),
 
 CreateAntenna          = ()   => ({type:'CreateAntenna'}),
 DeleteAntenna          = (id) => ({type:'DeleteAntenna', id}),
@@ -32,6 +33,11 @@ SetAntennaPosition     = (id, position) => ({type:'SetAntennaPosition', id, posi
 SetAntennaX            = (id, x) => ({type:'SetAntennaX', id, x}),
 SetAntennaZ            = (id, z) => ({type:'SetAntennaZ', id, z}),
 SetAntennaEnabled      = (id, enabled) => ({type:'SetAntennaEnabled', id, enabled}),
+SetAntennaAnnotations  = (id, enabled) => ({type:'SetAntennaAnnotations', id, enabled}),
+
+SetApertureWavelength  = (wavelength) => ({type:'SetApertureWavelength', wavelength}),
+SetApertureDeclination = (declination) => ({type:'SetApertureDeclination', declination}),
+SetApertureAscension   = (ascension) => ({type:'SetApertureAscension', ascension}),
 
 SetCameraMode          = (mode) => ({type:'SetCameraMode', mode}),
 SetCameraFlyaround     = (on) => ({type:'SetCameraFlyaround', on}),
@@ -43,3 +49,4 @@ SetDragMode            = (mode) => ({type:'SetDragMode', mode}),
 
 
 NullAction             = () => ({type:'NullAction'});
+

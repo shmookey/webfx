@@ -1,0 +1,19 @@
+Major functionality
+ - UV plane visualisation
+ - Earth positioning
+
+UI Enhancements
+ - Click to select objects in scene
+ - Scroll / shift-drag to change zoom
+ - Tooltips for property inputs
+ - Grid settings
+ - Labelled grid axes
+ - Drag to move objects
+ - Input field units
+ - Escape to deselect
+ - Click scene to deselect
+
+Renderer
+ - Text objects
+ - Camera transitions
+

@@ -25,10 +25,10 @@ export async function init(deviceRef, presentationFormat, globalsBufferRef) {
       entryPoint: 'frag_main',
       targets: [{
         format: presentationFormat,
-//        blend: {
-//          color: { operation: 'add', srcFactor: 'one', dstFactor: 'one' },
-//          alpha: { operation: 'add', srcFactor: 'one-minus-dst-alpha', dstFactor: 'one-minus-src-alpha' }
-//        }
+        blend: {
+          color: { operation: 'add', srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+          alpha: { operation: 'add', srcFactor: 'one', dstFactor: 'one' }
+        }
       }, {
         format: 'r32uint',
       }]

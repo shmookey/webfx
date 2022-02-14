@@ -1,4 +1,4 @@
-import * as gpu from '/gpu.mjs'
+//import * as gpu from '/gpu.mjs'
 
 const css = `
 #wrapper {
@@ -7,7 +7,8 @@ const css = `
 `
 
 class RenderTargetElement extends HTMLElement {
-  #renderer = null
+  #renderer     = null
+  #jobInstalled = false
 
   constructor() {
     super()
@@ -29,24 +30,35 @@ class RenderTargetElement extends HTMLElement {
   }
 
   set renderer(job) {
+    const gpu = webfx.gpu
     if(this.#renderer && this.isConnected) {
-      gpu.removeRenderJob(this.#renderer)
+      gpu.jobs.render.remove(this.#renderer)
+      this.#jobInstalled = false
     }
     this.#renderer = job
     if(this.isConnected) {
-      gpu.addRenderJob(this.#renderer)
+      gpu.jobs.render.add(this.#renderer)
+      this.#jobInstalled = true
     }
   }
 
   connectedCallback() {
+    const gpu = webfx.gpu
     if(!this.isConnected) return
-    if(this.#renderer) gpu.addRenderJob(this.#renderer)
+    if(this.#renderer && !this.#jobInstalled) {
+      gpu.jobs.render.add(this.#renderer)
+      this.#jobInstalled = true
+    }
     this.updateRect()
   }
   
   disconnectedCallback() {
+    const gpu = webfx.gpu
     if(this.isConnected) return
-    if(this.#renderer) gpu.removeRenderJob(this.#renderer)
+    if(this.#renderer && this.#jobInstalled) { 
+      gpu.jobs.render.remove(this.#renderer)
+      this.#jobInstalled = false
+    }
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
