@@ -29,30 +29,45 @@ const html = `
   <div class='section position'>
     <div class='prop prop-x'>
       <label>X</label>
-      <input is='property-input' type='text' />
+      <input is='property-input' type='text' unit='m' />
     </div>
     <div class='prop prop-y'>
       <label>Y</label>
-      <input is='property-input' type='text' />
+      <input is='property-input' type='text' unit='m' />
     </div>
     <div class='prop prop-z'>
       <label>Z</label>
-      <input is='property-input' type='text' />
+      <input is='property-input' type='text' unit='m' />
+    </div>
+  </div>
+  <div class='section uv'>
+    <div class='section-label'>UV Coverage</div>
+    <div class='prop prop-wavelength'>
+      <label>λ</label>
+      <input is='property-input' type='text' unit='mm' />
+    </div>
+    <div class='prop prop-h0'>
+      <label>h₀</label>
+      <input is='property-input' type='text' unit='h' />
+    </div>
+    <div class='prop prop-h1'>
+      <label>h₁</label>
+      <input is='property-input' type='text' unit='h' />
     </div>
   </div>
   <div class='section aperture'>
-    <div class='section-label'>Aperture</div>
-    <div class='prop prop-wavelength'>
-      <label>λ</label>
-      <input is='property-wavelength' type='text' />
-    </div>
+    <div class='section-label'>Beam</div>
     <div class='prop prop-dec'>
       <label>δ</label>
-      <input is='property-dec' type='text' />
+      <input is='property-input' type='text' unit='°' />
     </div>
     <div class='prop prop-ra'>
       <label>α</label>
-      <input is='property-ra' type='text' />
+      <input is='property-input' type='text' unit='°' />
+    </div>
+    <div class='prop prop-beamwidth'>
+      <label>Ω</label>
+      <input is='property-input' type='text' unit='°' />
     </div>
   </div>
 `
@@ -91,6 +106,7 @@ export function init() {
   elements.signalSection     = elem.querySelector('.section.signal')
   elements.positionSection   = elem.querySelector('.section.position')
   elements.identifierSection = elem.querySelector('.section.identifier')
+  elements.uvSection         = elem.querySelector('.section.uv')
   elements.apertureSection   = elem.querySelector('.section.aperture')
   elements.camModeLandscape  = elem.querySelector('.camera-mode .landscape')
   elements.camModeMap        = elem.querySelector('.camera-mode .map')
@@ -105,10 +121,22 @@ export function init() {
   elements.inputWavelength   = elem.querySelector('.prop-wavelength input')
   elements.inputDEC          = elem.querySelector('.prop-dec input')
   elements.inputRA           = elem.querySelector('.prop-ra input')
+  elements.inputH0           = elem.querySelector('.prop-h0 input')
+  elements.inputH1           = elem.querySelector('.prop-h1 input')
+  elements.inputBeamwidth    = elem.querySelector('.prop-beamwidth input')
  
   elements.inputWavelength.value = webfx.model.aperture.wavelength.toString()
   elements.inputDEC.value        = webfx.model.aperture.declination.toString()
   elements.inputRA.value         = webfx.model.aperture.ascension.toString()
+  elements.inputH0.value         = webfx.model.aperture.h0.toString()
+  elements.inputH1.value         = webfx.model.aperture.h1.toString()
+  elements.inputBeamwidth.value  = webfx.model.aperture.beamwidth.toString()
+  elements.inputWavelength.confirmInput()
+  elements.inputDEC.confirmInput()
+  elements.inputRA.confirmInput()
+  elements.inputH0.confirmInput()
+  elements.inputH1.confirmInput()
+  elements.inputBeamwidth.confirmInput()
  
   elements.inputX.addEventListener('change', submitChange('x'))
   elements.inputY.addEventListener('change', submitChange('y'))
@@ -149,6 +177,7 @@ export function useSource(descriptor) {
   elements.positionSection.classList.add('enabled')
   elements.identifierSection.classList.add('enabled')
   elements.signalSection.classList.add('enabled')
+  elements.uvSection.classList.remove('enabled')
   elements.apertureSection.classList.remove('enabled')
 
   elements.entityName.textContent = descriptor.name
@@ -167,8 +196,9 @@ export function useAntenna(descriptor) {
   elements.cameraSection.classList.add('enabled')
   elements.positionSection.classList.add('enabled')
   elements.identifierSection.classList.add('enabled')
-  elements.apertureSection.classList.remove('enabled')
+  //elements.apertureSection.classList.remove('enabled')
   elements.signalSection.classList.remove('enabled')
+  //elements.uvSection.classList.remove('enabled')
   elements.colourBox.setAttribute('colour', descriptor.colour)
   elements.entityName.textContent = descriptor.name
   elements.inputX.setAttribute('value', descriptor.position[0].toString())
@@ -182,6 +212,7 @@ export function useDefaultControls() {
   elements.propZ.style.display = 'none'
   elements.cameraSection.classList.add('enabled')
   elements.apertureSection.classList.add('enabled')
+  elements.uvSection.classList.add('enabled')
   elements.signalSection.classList.remove('enabled')
   elements.positionSection.classList.remove('enabled')
   elements.identifierSection.classList.remove('enabled')
@@ -190,7 +221,7 @@ export function useDefaultControls() {
 function submitChange(prop) {
   return function(ev) {
     const descriptor = viewState.descriptor
-    const val = Number.parseFloat(ev.srcElement.value)
+    const val = Number.parseFloat(ev.srcElement.baseValue)
     if(descriptor.type == 'source') {
       if(prop == 'x')      post(actions.SetSourceX(descriptor.id, val))
       else if(prop == 'y') post(actions.SetSourceY(descriptor.id, val))

@@ -1,12 +1,14 @@
 #prop-bar {
   display: flex;
   height:  40px;
-  width:   100%;
+  min-width:   100vw;
+  width: max-content;
   background: #202030;
   align-items: center;
   font-family: sans-serif;
   font-size:   12px;
   border-bottom: 2px solid #404050;
+  overflow-x: hidden;
 }
 
 #prop-bar .section {
@@ -36,7 +38,7 @@
 }
 
 #prop-bar label {
-  margin: 0 5px;
+  margin: 0 0 0 5px;
 }
 
 #prop-bar input {
@@ -62,7 +64,10 @@
 
 #prop-bar .prop-dec label,
 #prop-bar .prop-ra label,
-#prop-bar .prop-wavelength label {
+#prop-bar .prop-wavelength label,
+#prop-bar .prop-h0 label,
+#prop-bar .prop-h1 label
+ {
   font-size: 14px;
 }
 

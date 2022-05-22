@@ -1,0 +1,33 @@
+#uv-panel {
+  right:  20px;
+  top:    60px;
+  width:  302px;
+  height: 350px;
+}
+
+#uv-panel .window-content {
+  width:  300px;
+  height: 300px;
+}
+
+#uv-panel svg {
+  width:  300px;
+  height: 300px;
+}
+
+#uv-panel svg .axis-line {
+  stroke: #404050;
+  stroke-width: 0.1;
+}
+
+#uv-panel svg .axis-label {
+  font-family: sans-serif;
+  font-size:   0.5px;
+  fill:        #707080;
+}
+
+#uv-panel svg .baseline {
+  fill: #A0A060;
+  r:    0.1;
+}
+

@@ -4,7 +4,7 @@ const html = `
 <div class='title-bar'>
   <div class='title'>Objects</div>
 </div>
-<div class='window-content'>
+<div class='window-content scrollable grow'>
   <div class='group sources'>
     <div class='group-heading sources'>
       <button class='expand-group'></button>
@@ -58,16 +58,18 @@ export function init() {
   elements.btnAddAntenna.addEventListener('click',     () => post(actions.CreateAntenna()))
   elements.btnExpandSources.addEventListener('click',  toggleExpandSources)
   elements.btnExpandAntennas.addEventListener('click', toggleExpandAntennas)
-  elements.sourceList.addEventListener('select', ev => {
-    elements.antennaList.clearSelection(false)
-    selected = ev.detail
-    updateControlButtons()
-  })
-  elements.antennaList.addEventListener('select', ev => {
-    elements.sourceList.clearSelection(false)
-    selected = ev.detail
-    updateControlButtons()
-  })
+  elements.sourceList.addEventListener('select', onSelect)
+  elements.antennaList.addEventListener('select', onSelect)
+  //elements.sourceList.addEventListener('select', ev => {
+  //  elements.antennaList.clearSelection(false)
+  //  selected = ev.detail
+  //  updateControlButtons()
+  //})
+  //elements.antennaList.addEventListener('select', ev => {
+  //  elements.sourceList.clearSelection(false)
+  //  selected = ev.detail
+  //  updateControlButtons()
+  //})
   elements.sourceList.addEventListener('togglevisibility', ev => 
     post(actions.SetSourceEnabled(ev.detail.id, !ev.detail.enabled)))
   elements.sourceList.addEventListener('toggleannotations', ev => 
@@ -88,6 +90,34 @@ export function init() {
   })
 
   return elements.view
+}
+
+function onSelect(ev) {
+  if(ev.detail == null) {
+    post(actions.DeselectEntity())
+  } else {
+    post(actions.SelectEntity(ev.detail))
+  }
+  ev.stopPropagation()
+}
+
+function applySelect(entity) {
+  if(entity.type == 'source') {
+    elements.antennaList.clearSelection(false)
+    elements.sourceList.setSelection(entity.entityID, false)
+  } else {
+    elements.sourceList.clearSelection(false)
+    elements.antennaList.setSelection(entity.entityID, false)
+  }
+  selected = entity
+  updateControlButtons()
+}
+
+function applyDeselect() {
+  elements.antennaList.clearSelection(false)
+  elements.sourceList.clearSelection(false)
+  selected = null
+  updateControlButtons()
 }
 
 function toggleExpandSources() {
@@ -159,6 +189,15 @@ export function apply(effect) {
     break
   case 'AntennaSetAnnotations':
     elements.antennaList.updateAnnotations(effect.id, effect.enabled)
+    break
+  case 'EntitySelected':
+    applySelect(effect.entity)
+    break
+  case 'EntityDeselected':
+    applyDeselect()
+    break
+  default:
+    console.log(`[view.objectsPanel] Ignoring effect: ${effect.type}`)
     break
   }
 }

@@ -32,6 +32,9 @@ ApertureSetWavelength   = (wavelength) => ({type:'ApertureSetWavelength', wavele
 ApertureSetDeclination  = (declination) => ({type:'ApertureSetDeclination', declination}),
 ApertureSetAscension    = (ascension) => ({type:'ApertureSetAscension', ascension}),
 
+EntitySelected          = (entity) => ({type:'EntitySelected', entity}),
+EntityDeselected        = () => ({type:'EntityDeselected'}),
+
 CameraModeChanged       = (mode) => ({type:'CameraModeChanged', mode}),
 CameraFlyaroundEnabled  = () => ({type:'CameraFlyaroundEnabled'}),
 CameraFlyaroundDisabled = () => ({type:'CameraFlyaroundDisabled'}),

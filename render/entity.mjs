@@ -18,6 +18,12 @@ the fragment shader. An additional vertex output for "world position" is also
 provided, corresponding to the input position attribute transformed by the
 model matrix only.
 
+TEXTURE: The object may optionally be textured. A textured object is created by
+supplying the optional texture argument to the constructor. Setting the texture
+attribute on an entity object has no effect. If provided, the texture and
+sampler are bound to slots 2 and 3 of the fragment shader bind group (group 1)
+respectively.
+
 VERTEX ATTRIBUTES
 NAME     LOCATION TYPE      OFFSET  SIZE  DESCRIPTION
 position        0 vec3<f32>      0    12  Position in local (model) space
@@ -44,19 +50,23 @@ export class Entity {
   uniformData
   vertexBuffer
   vertexData
+  texture
   #destroyed
   static isInitialised = false
   static pipelines     = {}
   static vertexState   = null
+  static sampler       = null
 
   constructor(
       entityID,
       fragmentShader,
       vertexData,
-      colour,
-      position,
-      scale,
-      propBuf) {
+      colour   = new Float32Array([1, 1, 1, 1]),
+      position = new Float32Array([0, 0, 0]),
+      scale    = new Float32Array([1, 1, 1]),
+      propBuf  = null,
+      texture  = null,
+      ) {
     if(!Entity.isInitialised) throw 'Entity class is not initialised'
 
     const device  = webfx.gpu.device
@@ -65,15 +75,17 @@ export class Entity {
     this.position = position
     this.scale    = scale
     this.propBuf  = propBuf
+    this.texture  = texture
     this.pipeline = Entity.getPipeline(fragmentShader)
     
     // Set up uniforms
     this.modelMatrix = mat4.create()
-    this.uniformData = new Float32Array(16 + 4)
+    this.uniformData = new Float32Array(16 + 4 + 1)
     mat4.fromTranslation(this.modelMatrix, this.position)
     mat4.scale(this.modelMatrix, this.modelMatrix, this.scale)
     this.uniformData.set(this.modelMatrix, 0)
     this.uniformData.set(this.colour, 16)
+    new Uint32Array(this.uniformData.buffer)[20] = entityID;
     this.uniformBuffer = device.createBuffer({
       size:  this.uniformData.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -94,8 +106,16 @@ export class Entity {
       { binding: 0, resource: { buffer: webfx.globalsBuffer } },
       { binding: 1, resource: { buffer: this.uniformBuffer } },
     ]
-    if(propBuf)
-      bindGroupEntries.push({binding: 2, resource: { buffer: propBuf }})
+    let nextBind = 2
+    if(texture) {
+      bindGroupEntries.push({binding: nextBind,   resource: Entity.sampler })
+      bindGroupEntries.push({binding: nextBind+1, resource: texture })
+      nextBind += 2
+    }
+    if(propBuf) {
+      bindGroupEntries.push({binding: nextBind, resource: { buffer: propBuf }})
+      nextBind += 1
+    }
     this.vertexBindGroup = device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0), 
       entries: [
@@ -157,6 +177,10 @@ export class Entity {
   static async init() {
     Entity.vertexShader  = await resource.getShader('render/entity.vert.wgsl')
     Entity.isInitialised = true
+    Entity.sampler = webfx.gpu.device.createSampler({
+      magFilter: 'linear',
+      minFilter: 'linear',
+    })
   }
 
   static getPipeline(name) {

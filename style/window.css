@@ -21,8 +21,12 @@
   border-bottom: 2px solid #303040;
 }
 .window .window-content {
-  flex-grow:   1;
   background:  #101020;
+}
+.window .window-content.grow {
+  flex-grow:   1;
+}
+.window .window-content.scrollable {
   overflow-y:  overlay;
 }
 .window .window-content::-webkit-scrollbar {

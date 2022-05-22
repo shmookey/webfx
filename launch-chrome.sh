@@ -1,2 +1,2 @@
 #!/bin/sh
-google-chrome --enable-features=Vulkan --enable-unsafe-webgpu
+chromium-browser-unstable --enable-features=Vulkan --enable-unsafe-webgpu

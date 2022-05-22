@@ -5,8 +5,9 @@
 };
 
 [[block]] struct Params {
-  model:  mat4x4<f32>;
-  colour: vec4<f32>;
+  model:    mat4x4<f32>;
+  colour:   vec4<f32>;
+  entityID: u32;
 };
 
 struct FragmentOutput {
@@ -28,6 +29,7 @@ fn main([[builtin(position)]] pos:      vec4<f32>,
   var diffuse:     vec3<f32> = max(dot(normal, lightDir), 0.0) * lightColour;
   var ambient:     vec3<f32> = 0.1 * lightColour;
   output.colour              = vec4<f32>(diffuse + ambient, 1.0) * params.colour;
+  output.id                  = params.entityID + 1u;
   return output;
 }
 

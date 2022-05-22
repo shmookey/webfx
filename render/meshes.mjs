@@ -380,14 +380,6 @@ export function globe(lats, longs) {
   return data
 }
 
-function calcNormal(p1, p2, p3) {
-  const v1 = [p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]]
-  const v2 = [p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2]]
-  const v3 = vec3.create()
-  vec3.cross(v3, v2, v1)
-  return v3
-}
-
 /** `parabolicSurface(K,J,F,M)` creates a parabolic dish shape.
 
 This function is based on `globe()`. Read the `globe()` documentation first for
@@ -508,3 +500,46 @@ export function parabolicSurfaceHelper(lats, longs, F, M, scale=1.0, invertNorma
 
   return data
 }
+
+/** Create a mesh for a rectangular surface. 
+
+Takes 4 arguments representing the XYZ coordinates of the vertices of the
+rectangle. Returns an Entity-compatible mesh. The order of the arguments
+is:
+
+#  POSITION
+1  Bottom-left
+2  Bottom-right
+3  Top-right
+4  Top-left
+
+The normal vector is uniform across the surface.
+
+Generates primitives in the form of a triangle list. Vertices have following
+attributes:
+
+NAME     TYPE      OFFSET   SIZE    DESCRIPTION
+position float32x3      0     12    XYZ position
+normal   float32x3     12     12    Normal vector
+uv       float32x2     24      8    UV coordinates
+*/
+function plane(p1, p2, p3, p4) {
+  const norm = calcNormal(p1, p2, p3)
+  return new Float32Array([
+    ...p1, ...norm, 0, 0,
+    ...p2, ...norm, 1, 0,
+    ...p3, ...norm, 1, 1,
+    ...p1, ...norm, 0, 0,
+    ...p3, ...norm, 1, 1,
+    ...p4, ...norm, 0, 1,
+  ])  
+}
+
+function calcNormal(p1, p2, p3) {
+  const v1 = [p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]]
+  const v2 = [p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2]]
+  const v3 = vec3.create()
+  vec3.cross(v3, v2, v1)
+  return v3
+}
+

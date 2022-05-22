@@ -31,22 +31,16 @@ export async function init(deviceRef, presentationFormat, globalsBufferRef) {
       entryPoint: 'frag_main',
       targets: [{
         format: presentationFormat,
-//        blend: {
-//          color: { operation: 'add', srcFactor: 'one', dstFactor: 'one' },
-//          alpha: { operation: 'add', srcFactor: 'one-minus-dst-alpha', dstFactor: 'one-minus-src-alpha' }
-//        }
       }, {
         format: 'r32uint',
       }]
     }, primitive: {
       topology: 'triangle-list',
-//      cullMode: 'back',
     }, multisample: {
       count: config.MULTISAMPLE_COUNT,
       alphaToCoverageEnabled: config.MULTISAMPLE_ALPHA_TO_COVERAGE,
     }, depthStencil: {
       depthWriteEnabled: false,
-      depthCompare: 'less',
       format: 'depth32float',
     },
   })

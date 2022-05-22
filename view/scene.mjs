@@ -8,11 +8,12 @@ import * as renderSkybox     from '/render/skybox.mjs'
 import * as meshes           from '/render/meshes.mjs'
 import * as propbarView      from '/view/propbar.mjs'
 import * as objectsPanelView from '/view/objects-panel.mjs'
+import * as uvPanelView      from '/view/uv-panel.mjs'
 import {Entity}              from '/render/entity.mjs'
 import {AntennaEntity}       from '/render/antenna.mjs'
 import {mat4,vec3}           from '/gl-matrix/dist/esm/index.js'
 
-const {sqrt, asin, acos, atan2, sin, tan, cos} = Math
+const {abs, sqrt, asin, acos, atan2, sin, tan, cos} = Math
 
 let device              = null
 let projectionMatrix    = mat4.create()
@@ -29,6 +30,10 @@ let viewElement         = null
 let elems               = []
 let jobs                = {antennas: {}, sources: {}}
 let canvas              = null
+
+const DRAG_STATE_IDLE     = 0,
+      DRAG_STATE_PENDING  = 1,
+      DRAG_STATE_DRAGGING = 2
 
 const viewState = {
   aspect:                  1,
@@ -49,6 +54,10 @@ const viewState = {
   dragging:                false,
   dragMode:                'pan',
   selected:                null,
+  selection:               null,
+  dragThreshold:           -1,
+  dragState:               DRAG_STATE_IDLE,
+  draggingEntity:          false,
 }
 
 const viewHTML = `
@@ -95,80 +104,17 @@ export function create(device) {
     renderedArea: viewElement.querySelector('#rendered-area'),
     propBar:      propbarView.init(),
     objectsPanel: objectsPanelView.init(),
+    uvPanel:      uvPanelView.init(),
   }
-  elems.objectsPanel.addEventListener('select', ev => {
-    let entity = null
-    if(ev.detail == null) {
-      propbarView.useDefaultControls()
-      if(viewState.selected) {
-        viewState.selected.job.selected = false
-        viewState.selected = null
-        emitDirty()
-      }
-    } else if(ev.detail.type == 'source') {
-      entity = jobs.sources[ev.detail.id]
-      if(viewState.selected != entity && viewState.selected)
-        viewState.selected.job.selected = false
-      viewState.selected = entity
-      entity.job.selected = true
-      propbarView.useSource(entity.descriptor)
-      emitDirty()
-    } else if(ev.detail.type == 'antenna') {
-      entity = jobs.antennas[ev.detail.id]
-      if(viewState.selected != entity && viewState.selected)
-        viewState.selected.job.selected = false
-      viewState.selected = entity
-      entity.job.selected = true
-      propbarView.useAntenna(entity.descriptor)
-      emitDirty()
-    }
-  })
-  elems.renderedArea.addEventListener('mousedown', async ev => {
-    elems.renderedArea.requestPointerLock()
-    viewState.dragging = true
-    if((ev.ctrlKey || ev.buttons == 2) && viewState.dragMode != 'look') {
-      post(actions.SetDragMode('look'))
-    } else if(ev.altKey && viewState.dragMode != 'pivot') {
-      post(actions.SetDragMode('pivot'))
-    } 
-  })
-  elems.renderedArea.addEventListener('mouseup', ev => {
-    document.exitPointerLock()
-    viewState.dragging = false
-  })
-  elems.renderedArea.addEventListener('mousemove', drag)
+
+  elems.renderedArea.addEventListener('mousedown',   onMouseDown)
+  elems.renderedArea.addEventListener('mouseup',     onMouseUp)
+  elems.renderedArea.addEventListener('mousemove',   onMouseMove)
+  document.addEventListener('keydown',               onKeyDown)
+  document.addEventListener('keyup',                 onKeyUp)
   elems.renderedArea.addEventListener('contextmenu', e => e.preventDefault())
-  document.addEventListener('keydown', ev => {
-    switch(ev.key) {
-    case 'Control':
-      post(actions.SetDragMode('look'))
-      break
-    case 'Alt':
-      post(actions.SetDragMode('pivot'))
-      break
-    case 'M':
-    case 'm':
-      post(actions.SetCameraMode('map'))
-      break
-    case 'L':
-    case 'l':
-      post(actions.SetCameraMode('landscape'))
-      break
-    case 'S':
-    case 's':
-      post(actions.SetCameraMode('sky'))
-      break
-    }
-  })
-  document.addEventListener('keyup', ev => {
-    switch(ev.key) {
-    case 'Control':
-    case 'Alt':
-      post(actions.SetDragMode('pan'))
-      break
-    }
-  })
-  viewElement.append(elems.objectsPanel)
+
+  viewElement.append(elems.objectsPanel, elems.uvPanel)
   viewElement.prepend(elems.propBar)
   elems.skybox.renderer = skyboxJob
   elems.grid.renderer = gridJob
@@ -177,47 +123,41 @@ export function create(device) {
   return viewElement  
 }
 
+function select(entity) {
+  const obj = entity.type == 'source'
+            ? jobs.sources[entity.id]
+            : jobs.antennas[entity.id]
+
+  if(viewState.selected && viewState.selected != obj)
+    viewState.selected.job.selected = false
+  viewState.selected = obj
+  viewState.selected.job.selected = true
+
+  if(entity.type == 'source')
+    propbarView.useSource(entity)
+  else
+    propbarView.useAntenna(entity)
+
+  emitDirty()
+}
+
+function deselect() {
+  if(viewState.selected)
+    viewState.selected.job.selected = false
+  viewState.selected = null
+  propbarView.useDefaultControls()
+  emitDirty()
+}
+
 function setDragMode(mode) {
+  // Don't change the drag mode during a drag operation
+  if(viewState.dragState != DRAG_STATE_IDLE)
+    return
+
   if(mode == 'look' || mode == 'pivot' || mode == 'pan') {
     viewState.dragMode = mode
   } else {
     throw 'Invalid drag mode'
-  }
-}
-
-async function drag(ev) {
-  if(!viewState.dragging)
-    return
-  const [dx,dy] = [ev.movementX, ev.movementY]
-  const target = viewState.cameraTarget.slice()
-  const position = viewState.cameraPosition.slice()
-  if(viewState.dragMode == 'look') {
-    setCameraTarget('coords', swivelCamera(position, target, dx, dy), false)
-  } else if(viewState.dragMode == 'pivot') {
-    setCameraPosition(swivelCamera(target, position, dx, dy))
-  } else if(viewState.dragMode == 'pan') {
-    const [cdx, cdy, cdz] = [target[0]-position[0], target[1]-position[1], target[2]-position[2]]
-    if(viewState.cameraMode == 'landscape') {
-      const a = atan2(cdx, cdz)
-      const mx = (dy*sin(a) + dx*cos(a))/100
-      const mz = (dy*cos(a) + dx*sin(a))/100
-      position[0] += mx
-      target[0]   += mx
-      position[2] += mz
-      target[2]   += mz
-      setCameraTarget('coords', target, false)
-      setCameraPosition(position)
-    } else if(viewState.cameraMode == 'map') {
-      const a = atan2(cdx, -cdz)
-      const mx = (dy*sin(a) + dx*cos(a))/100
-      const mz = (dy*cos(a) + dx*sin(a))/100
-      position[0] += mx
-      target[0]   += mx
-      position[2] += mz
-      target[2]   += mz
-      setCameraTarget('coords', target, false)
-      setCameraPosition(position)
-    }
   }
 }
 
@@ -341,6 +281,19 @@ export function apply(effect) {
   case 'DragModeChanged':
     propbarView.apply(effect)
     setDragMode(effect.mode)
+    break
+  case 'BaselineCreated':
+  case 'BaselineMoved':
+  case 'BaselineDeleted':
+    uvPanelView.apply(effect)
+    break
+  case 'EntitySelected':
+    objectsPanelView.apply(effect)
+    select(effect.entity)
+    break
+  case 'EntityDeselected':
+    objectsPanelView.apply(effect)
+    deselect()
     break
   default:
     console.info(`[view.scene] Ignoring effect: ${effect.type}`)
@@ -551,4 +504,193 @@ function setCameraRelPosition(position) {
   
 }
 
+/* 
+ *
+ * UI events
+ *
+ */
 
+
+/** Handle the mousedown event on the scene.
+
+Dragging and clicking are distinguished by mouse movement. In both cases, the
+mousedown event fires first. At this point we set the `dragThreshold` value to
+a small number, representing a number of pixels of mouse movement required to
+start a drag operation. The mousemove event decrements it by the sum of
+movements in both axes. If it reaches zero, a drag operation begins. If a
+mouseup event occurs first, it is treated as a click.
+*/
+async function onMouseDown(ev) {
+  viewState.dragThreshold = 5
+  viewState.dragState     = DRAG_STATE_PENDING
+  const id = await gpu.getEntityAt(ev.x, ev.y)
+  if(id == -1) {
+    viewState.draggingEntity = false
+  } else {
+    viewState.draggingEntity = true
+    post(actions.SelectEntity(id))
+  }
+}
+
+/** Handle a click event on the scene.
+
+Clicking and dragging an entity both have the effect of selecting it, so the
+only behaviour special to clicking is deselection. Selection is implemented
+anyway, since there isn't really any cost to it and it may be useful in certain
+cases such as with synthetic events.
+
+See the documentation for onMouseDown for more information about how mouse
+events are handled.
+*/
+async function onClick(ev) {
+  viewState.dragThreshold = -1
+  viewState.dragState     = DRAG_STATE_IDLE
+
+  const id = await gpu.getEntityAt(ev.x, ev.y)
+  if(id == -1)
+    post(actions.DeselectEntity())
+  else
+    post(actions.SelectEntity(id))
+}
+
+/** Handle the mouseup event on the scene.
+
+See the documentation for onMouseDown for how mouse events are handled.
+*/
+function onMouseUp(ev) {
+  if(viewState.dragState != DRAG_STATE_DRAGGING)
+    onClick(ev)
+  else
+    endDrag()
+}
+
+/** Handle the mousemove event on the scene.
+
+See the documentation for onMouseDown for how mouse events are handled.
+*/
+function onMouseMove(ev) {
+  if(viewState.dragState == DRAG_STATE_PENDING) {
+    viewState.dragThreshold -= abs(ev.movementX) + abs(ev.movementY)
+    if(viewState.dragThreshold <= 0)
+      beginDrag(ev)
+  } else if(viewState.dragState == DRAG_STATE_DRAGGING) {
+    drag(ev)
+  }
+}
+
+/** Begin a drag operation. 
+
+See the documentation for onMouseDown for how mouse events are handled.
+*/
+function beginDrag(ev) {
+  viewState.dragThreshold = -1
+  viewState.dragState     = DRAG_STATE_DRAGGING
+  elems.renderedArea.requestPointerLock()
+  if((ev.ctrlKey || ev.buttons == 2) && viewState.dragMode != 'look') {
+    post(actions.SetDragMode('look'))
+  } else if(ev.altKey && viewState.dragMode != 'pivot') {
+    post(actions.SetDragMode('pivot'))
+  }
+}
+
+/** End a drag operation. 
+
+See the documentation for onMouseDown for how mouse events are handled.
+*/
+function endDrag() {
+  viewState.dragThreshold = -1
+  viewState.dragState     = DRAG_STATE_IDLE
+  document.exitPointerLock()
+}
+
+/** Handle drag movement.
+
+See the documentation for onMouseDown for how mouse events are handled.
+*/
+function drag(ev) {
+  const [dx,dy] = [ev.movementX, ev.movementY]
+  let target = viewState.cameraTarget.slice()
+  const position = viewState.cameraPosition.slice()
+  if(viewState.draggingEntity) {
+    dragSelected(ev)
+  } else if(viewState.dragMode == 'look') {
+    setCameraTarget('coords', swivelCamera(position, target, dx, dy), false)
+  } else if(viewState.dragMode == 'pivot') {
+    setCameraPosition(swivelCamera(target, position, dx, dy))
+  } else if(viewState.dragMode == 'pan') {
+    const [cdx, cdy, cdz] = [target[0]-position[0], target[1]-position[1], target[2]-position[2]]
+    if(viewState.cameraMode == 'landscape') {
+      const a = atan2(cdx, cdz)
+      const mx = (dy*sin(a) + dx*cos(a))/100
+      const mz = (dy*cos(a) + dx*sin(a))/100
+      position[0] += mx
+      target[0]   += mx
+      position[2] += mz
+      target[2]   += mz
+      setCameraTarget('coords', target, false)
+      setCameraPosition(position)
+    } else if(viewState.cameraMode == 'map') {
+      const a = atan2(cdx, -cdz)
+      const mx = (dy*sin(a) + dx*cos(a))/100
+      const mz = (dy*cos(a) + dx*sin(a))/100
+      position[0] += mx
+      target[0]   += mx
+      position[2] += mz
+      target[2]   += mz
+      setCameraTarget('coords', target, false)
+      setCameraPosition(position)
+    }
+  }
+}
+
+function dragSelected(ev) {
+  const entity = viewState.selected.descriptor
+  if(!entity.type == 'antenna')
+    return
+
+  const [mx, my] = [ev.movementX, ev.movementY]
+  const targetPos = entity.position.slice()
+  const cameraDir = [
+    viewState.cameraTarget[0] - viewState.cameraPosition[0],
+    viewState.cameraTarget[2] - viewState.cameraPosition[2],
+  ]
+  const a = atan2(cameraDir[1], cameraDir[0])
+  const dx = (mx*sin(a) + my*cos(a))/100
+  const dz = (mx*cos(a) + my*sin(a))/100
+  targetPos[0] -= dx
+  targetPos[2] -= dz
+
+  post(actions.SetAntennaPosition(entity.id, targetPos))
+}
+
+function onKeyDown(ev) {
+  switch(ev.key) {
+  case 'Control':
+    post(actions.SetDragMode('look'))
+    break
+  case 'Alt':
+    post(actions.SetDragMode('pivot'))
+    break
+  case 'M':
+  case 'm':
+    post(actions.SetCameraMode('map'))
+    break
+  case 'L':
+  case 'l':
+    post(actions.SetCameraMode('landscape'))
+    break
+  case 'S':
+  case 's':
+    post(actions.SetCameraMode('sky'))
+    break
+  }
+}
+
+function onKeyUp(ev) {
+  switch(ev.key) {
+  case 'Control':
+  case 'Alt':
+    post(actions.SetDragMode('pan'))
+    break
+  }
+}

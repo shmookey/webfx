@@ -178,9 +178,28 @@ class ItemSelectElement extends HTMLElement {
     this.#selected = entry
     const event = new CustomEvent('select', {
       bubbles: true,
-      detail: {id, type: entry.descriptor.type }
+      detail: id,
     })
     this.dispatchEvent(event)
+  }
+
+  setSelection(id, emitEvent=false) {
+    if(id == null) {
+      return this.clearSelection(emitEvent)
+    } 
+    if(this.#selected) {
+      this.#selected.element.classList.remove('selected')
+    }
+    const entry = this.#entries[id]
+    entry.element.classList.add('selected')
+    this.#selected = entry
+    if(emitEvent) {
+      const event = new CustomEvent('select', {
+        bubbles: true,
+        detail: id,
+      })
+      this.dispatchEvent(event)
+    }
   }
 
   clearSelection(emitDeselection) {
@@ -208,7 +227,7 @@ class ItemSelectElement extends HTMLElement {
     const btnVisibility  = clone.querySelector('button.visibility')
     const btnAnnotations = clone.querySelector('button.annotations')
 
-    const id               = descriptor.id
+    const id               = descriptor.entityID
     itemElement.dataset.id = id
     inputElement.value     = descriptor.name
 
@@ -237,6 +256,9 @@ class ItemSelectElement extends HTMLElement {
     inputElement.addEventListener('blur', () => {
       inputElement.disabled = true
       window.getSelection().removeAllRanges()
+    })
+    inputElement.addEventListener('keydown', ev => {
+      ev.stopPropagation()
     })
     btnVisibility.addEventListener('click', ev => {
       const event = new CustomEvent('togglevisibility', {

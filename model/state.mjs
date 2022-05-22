@@ -43,6 +43,9 @@ export const init = () => ({
     wavelength:   1000, // in mm
     declination:  0,
     ascension:    0,
+    h0:           0,
+    h1:           0,
+    beamwidth:    10, // in degrees
   },
 })
 
@@ -231,6 +234,16 @@ export const update = (state, action) => {
     }
 
     // Non-mutating events
+
+    case 'SelectEntity':
+      if(action.entityID == null) {
+        return [state, [Effect.EntityDeselected()]]
+      } else {
+        return [state, [Effect.EntitySelected(state.entities[action.entityID])]]
+      }
+
+    case 'DeselectEntity':
+      return [state, [Effect.EntityDeselected()]]
 
     case 'SetCameraMode':
       return [state, [Effect.CameraModeChanged(action.mode)]]

@@ -5,8 +5,9 @@
 };
 
 [[block]] struct Params {
-  model:  mat4x4<f32>;
-  colour: vec4<f32>;
+  model:    mat4x4<f32>;
+  colour:   vec4<f32>;
+  entityID: u32;
 };
 
 [[block]] struct Colours {
@@ -34,6 +35,7 @@ fn main([[builtin(position)]] pos:      vec4<f32>,
   var y = uv[1];
 
   output.colour = colours.fill + (globals.lightPos.x * 0.0 + params.colour * 0.0);
+  output.id     = params.entityID + 1u;
 
   if((x < 0.05 || x > 0.95 || y < 0.05 || y > 0.95) && colours.outline.a > 0.0) {
     output.colour = colours.outline;

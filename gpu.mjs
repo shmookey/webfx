@@ -26,10 +26,12 @@ const gpu = {
   buffers: {
     viewportUniforms:    null,
     depthExtraction:     null,
+    picker:              null,
   },
   attachments: {
     colour:              null,
     depth:               null,
+    pickerMSAA:          null,
     picker:              null,
   },
   jobs: {
@@ -44,6 +46,7 @@ const gpu = {
       storeOp:       'store'
     }, {
       view:          null,
+      resolveTarget: null,
       loadValue:     {r: 0, g: 0, b: 0, a: 0},
       storeOp:       'store'
     }],
@@ -151,9 +154,10 @@ export async function init(canvas) {
 }
 
 function initRenderAttachments() {
-  if(gpu.attachments.colour) gpu.attachments.colour.destroy()
-  if(gpu.attachments.depth)  gpu.attachments.depth.destroy()
-  if(gpu.attachments.picker) gpu.attachments.picker.destroy()
+  if(gpu.attachments.colour)     gpu.attachments.colour.destroy()
+  if(gpu.attachments.depth)      gpu.attachments.depth.destroy()
+  if(gpu.attachments.pickerMSAA) gpu.attachments.pickerMSAA.destroy()
+  if(gpu.attachments.picker)     gpu.attachments.picker.destroy()
 
   gpu.attachments.colour = gpu.device.createTexture({
     size:        gpu.presentation.size,
@@ -167,16 +171,24 @@ function initRenderAttachments() {
     usage:       GPUTextureUsage.RENDER_ATTACHMENT,
     sampleCount: config.MULTISAMPLE_COUNT,
   })
-  gpu.attachments.picker = gpu.device.createTexture({
+  gpu.attachments.pickerMSAA = gpu.device.createTexture({
     size:        gpu.presentation.size,
     format:      'r32uint',
     usage:       GPUTextureUsage.RENDER_ATTACHMENT,
     sampleCount: config.MULTISAMPLE_COUNT,
   })
+  gpu.attachments.picker = gpu.device.createTexture({
+    size:        gpu.presentation.size,
+    format:      'r32uint',
+    usage:       GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    sampleCount: 1,
+  })
 
-  gpu.renderPassDescriptor.colorAttachments[0].view    = gpu.attachments.colour.createView()
-  gpu.renderPassDescriptor.colorAttachments[1].view    = gpu.attachments.picker.createView()
-  gpu.renderPassDescriptor.depthStencilAttachment.view = gpu.attachments.depth.createView()
+  const descriptor = gpu.renderPassDescriptor
+  descriptor.colorAttachments[0].view          = gpu.attachments.colour.createView()
+  descriptor.colorAttachments[1].view          = gpu.attachments.pickerMSAA.createView()
+  descriptor.colorAttachments[1].resolveTarget = gpu.attachments.picker.createView()
+  descriptor.depthStencilAttachment.view       = gpu.attachments.depth.createView()
 }
 
 function initPresentationGeometry() {
@@ -197,14 +209,15 @@ function configureCanvasContext() {
   })
 }
 
-function setupBuffers() {
+function setupBuffers() { 
+  // Depth extraction
   if(gpu.buffers.depthExtraction) gpu.buffers.depthExtraction.destroy()
   gpu.buffers.depthExtraction = gpu.device.createBuffer({
     size:  64*Math.ceil(gpu.presentation.size[0]/64)*gpu.presentation.size[1],
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
   })
 
-  // Don't bother recreating viewport uniform buffer if already set up
+  // Don't bother recreating viewport uniform or picker buffer if already set up
   if(!gpu.buffers.viewportUniforms) {
     gpu.buffers.viewportUniforms = gpu.device.createBuffer({
       size:  8,
@@ -212,6 +225,12 @@ function setupBuffers() {
     })
   }
   gpu.device.queue.writeBuffer(gpu.buffers.viewportUniforms, 0, gpu.presentation.size)
+  if(!gpu.buffers.picker) {
+    gpu.buffers.picker = gpu.device.createBuffer({
+      size:  4,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    })
+  }
 }
 
 
@@ -270,5 +289,21 @@ export async function getDepthAt(x, y) {
   const z = arr[p]
   depthExtractBuffer.unmap()
   return z
+}
+
+export async function getEntityAt(x, y) {
+  const commandEncoder = gpu.device.createCommandEncoder()
+  commandEncoder.copyTextureToBuffer(
+    { texture: gpu.attachments.picker, origin: [x, y] },
+    { buffer: gpu.buffers.picker },
+    [1, 1]
+  )
+  gpu.device.queue.submit([commandEncoder.finish()])
+  await gpu.buffers.picker.mapAsync(GPUMapMode.READ)
+  const data = gpu.buffers.picker.getMappedRange()
+  const arr = new Uint32Array(data)
+  const id = arr[0] - 1
+  gpu.buffers.picker.unmap()
+  return id
 }
 
